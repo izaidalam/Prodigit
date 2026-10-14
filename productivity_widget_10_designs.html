@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prodigit - 10 UI Design Concepts</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #0B0D13;
+      color: #E2E8F0;
+      overflow-x: hidden;
+    }
+    .font-mono-code {
+      font-family: 'Fira Code', monospace;
+    }
+    .font-display {
+      font-family: 'Space Grotesk', sans-serif;
+    }
+    /* Smooth viewport resizing transitions */
+    #deviceFrame {
+      transition: max-width 0.4s cubic-bezier(0.16, 1, 0.3, 1), width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    /* Hide scrollbars for slick tabs */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    /* Glow utilities */
+    .glow-cyan {
+      box-shadow: 0 0 25px rgba(6, 182, 212, 0.35);
+    }
+    .glow-emerald {
+      box-shadow: 0 0 25px rgba(16, 185, 129, 0.35);
+    }
+    .glow-neon {
+      box-shadow: 0 0 30px rgba(139, 92, 246, 0.3);
+    }
+    .neo-shadow {
+      box-shadow: 4px 4px 0px #000000;
+    }
+    .neo-shadow-sm {
+      box-shadow: 2px 2px 0px #000000;
+    }
+    .crt-grid {
+      background-size: 100% 3px;
+      background-image: linear-gradient(rgba(16, 185, 129, 0.05) 50%, rgba(0, 0, 0, 0.4) 50%);
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-[#0A0C14] flex flex-col text-slate-100">
+
+  <!-- ================= TOP CONTROLS & HEADER ARCHITECTURE ================= -->
+  <header class="sticky top-0 z-50 bg-[#10131F]/95 backdrop-blur-xl border-b border-slate-800/80 px-4 py-3 shadow-2xl">
+    <div class="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-3">
+      
+      <!-- Brand & Title -->
+      <div class="flex items-center gap-3 shrink-0">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-emerald-400 flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20 text-base">
+          ⏱
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-extrabold tracking-tight text-white text-base">PRODIGIT</span>
+            <span class="text-[11px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">Design Lab</span>
+          </div>
+          <p class="text-xs text-slate-400">10 Vector UI Prototypes for Desktop Home Screen Widget</p>
+        </div>
+      </div>
+
+      <!-- Viewport Switcher Buttons -->
+      <div class="flex items-center gap-1.5 bg-slate-900/90 p-1 rounded-xl border border-slate-800 shadow-inner shrink-0">
+        <button onclick="setViewport('desktop')" id="vp-desktop" class="vp-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white shadow-sm transition-all">
+          <span>💻</span>
+          <span>Desktop</span>
+          <span class="text-[10px] text-blue-200 opacity-80">(1280px)</span>
+        </button>
+        <button onclick="setViewport('tablet')" id="vp-tablet" class="vp-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all">
+          <span>📱</span>
+          <span>Tablet</span>
+          <span class="text-[10px] text-slate-500">(768px)</span>
+        </button>
+        <button onclick="setViewport('mobile')" id="vp-mobile" class="vp-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all">
+          <span>📱</span>
+          <span>Mobile</span>
+          <span class="text-[10px] text-slate-500">(390px)</span>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Mandatory 10 Concepts Tab Switcher Row with Prev/Next Controls -->
+    <div class="max-w-7xl mx-auto mt-2.5 pt-2 border-t border-slate-800/60 flex items-center justify-between gap-3">
+      
+      <!-- Prev & Next Buttons in Header Bar -->
+      <div class="flex items-center gap-1.5 shrink-0 bg-slate-900/90 p-1 rounded-xl border border-slate-800 shadow-inner">
+        <button onclick="prevConcept()" id="btnPrevHeader" class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-200 hover:bg-blue-600 hover:text-white transition-all shadow-sm group" title="Previous Design (Left Arrow Key [←])">
+          <span class="group-hover:-translate-x-0.5 transition-transform">◀</span>
+          <span class="hidden sm:inline">Prev</span>
+        </button>
+        <span id="conceptIndexBadge" class="text-xs font-mono-code font-bold px-2 py-0.5 text-blue-400 bg-blue-500/10 rounded border border-blue-500/20">1 / 10</span>
+        <button onclick="nextConcept()" id="btnNextHeader" class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-200 hover:bg-blue-600 hover:text-white transition-all shadow-sm group" title="Next Design (Right Arrow Key [→])">
+          <span class="hidden sm:inline">Next</span>
+          <span class="group-hover:translate-x-0.5 transition-transform">▶</span>
+        </button>
+      </div>
+
+      <!-- Tab Buttons Slider -->
+      <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 flex-1">
+        <button onclick="setConcept(1)" id="tab-1" class="concept-tab px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-blue-600 text-white shadow-md transition-all">1. Obsidian Dark</button>
+        <button onclick="setConcept(2)" id="tab-2" class="concept-tab px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white transition-all">2. Cyber Glass</button>
+        <button onclick="setConcept(3)" id="tab-3" class="concept-tab px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white transition-all">3. Dynamic Island</button>
+        <button onclick="setConcept(4)" id="tab-4" class="concept-tab px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white transition-all">4. Neo-Brutalism</button>
+        <button onclick="setConcept(5)" id="tab-5" class="concept-tab px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white transition-all">5. Retro Terminal</button>
+        <button onclick="setConcept(6)" id="tab-6" class="concept-tab px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white transition-all">6. Nordic Clay</button>
+        <button onclick="setConcept(7)" id="tab-7" class="concept-tab px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white transition-all">7. Aurora Neon</button>
+        <button onclick="setConcept(8)" id="tab-8" class="concept-tab px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white transition-all">8. Bento Studio</button>
+        <button onclick="setConcept(9)" id="tab-9" class="concept-tab px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white transition-all">9. Swiss Monochrome</button>
+        <button onclick="setConcept(10)" id="tab-10" class="concept-tab px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white transition-all">10. Arc HUD Pod</button>
+        <button onclick="setConcept('all')" id="tab-all" class="concept-tab px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md hover:brightness-110 transition-all">👁️ All 10 Side-by-Side</button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ================= SIMULATED BROWSER & DEVICE FRAME ================= -->
+  <main class="flex-1 py-8 px-4 flex justify-center items-start">
+    <div id="deviceFrame" class="w-full max-w-[1280px] bg-slate-950/90 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col transition-all duration-300">
+      
+      <!-- Simulated OS Window Header Controls -->
+      <div class="bg-slate-900/90 border-b border-slate-800/80 px-4 py-2.5 flex items-center justify-between gap-4">
+        <!-- macOS Window Dots -->
+        <div class="flex items-center gap-2">
+          <div class="w-3 h-3 rounded-full bg-rose-500/90 border border-rose-600"></div>
+          <div class="w-3 h-3 rounded-full bg-amber-500/90 border border-amber-600"></div>
+          <div class="w-3 h-3 rounded-full bg-emerald-500/90 border border-emerald-600"></div>
+          <span class="ml-2 text-xs font-medium text-slate-400">Desktop Simulation &middot; Windows 11 / macOS Shell</span>
+        </div>
+
+        <!-- Simulated Address Bar -->
+        <div class="hidden sm:flex items-center gap-2 px-3 py-1 rounded-md bg-slate-950/80 border border-slate-800 text-xs text-slate-400 w-80 max-w-sm justify-center font-mono-code text-[11px]">
+          <span class="text-emerald-400">🔒</span>
+          <span class="text-slate-300">prodigit://widget/desktop-overlay</span>
+        </div>
+
+        <!-- Active Viewport Tag & State -->
+        <div class="flex items-center gap-2">
+          <span id="resolutionBadge" class="text-[11px] font-mono-code px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">1280 &times; 860 px</span>
+          <span class="flex h-2 w-2 relative">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Simulated Desktop Canvas Workspace -->
+      <div class="p-6 sm:p-10 bg-gradient-to-b from-[#0d101a] via-[#090b12] to-[#07080e] min-h-[720px] flex flex-col justify-between relative overflow-hidden">
+        
+        <!-- Wallpaper ambient accent -->
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.1),transparent_70%)] pointer-events-none"></div>
+
+        <!-- Single Concept Workspace Views (1 through 10) -->
+        <div id="singleConceptContainer" class="w-full flex flex-col items-center justify-center gap-8 z-10">
+          
+          <!-- Concept Meta Tag Header -->
+          <div class="text-center max-w-xl">
+            <div id="conceptTagline" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 mb-2">
+              Concept #1 &middot; Linear Dark Studio
+            </div>
+            <h2 id="conceptTitle" class="text-2xl font-bold tracking-tight text-white mb-1">Obsidian Dark Fluent</h2>
+            <p id="conceptDesc" class="text-xs text-slate-400">Precision dark mode with hairline graphite borders, glowing indicators, and compact bottom pill dock.</p>
+          </div>
+
+          <!-- THE ACTIVE DESIGN PREVIEW STAGE WITH LEFT & RIGHT BUTTONS -->
+          <div class="relative w-full flex items-center justify-center py-2">
+            
+            <!-- Left Navigation Button -->
+            <button onclick="prevConcept()" class="absolute left-0 sm:left-2 md:left-6 z-20 w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-slate-900/90 hover:bg-blue-600 border border-slate-700/80 hover:border-blue-400 text-white flex flex-col items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all group backdrop-blur-md cursor-pointer" title="Previous Design (Left Arrow Key [←])">
+              <span class="text-xl group-hover:-translate-x-1 transition-transform">◀</span>
+              <span class="text-[9px] text-slate-400 group-hover:text-blue-100 font-mono-code mt-0.5 hidden sm:block">← Left</span>
+            </button>
+
+            <!-- Main Stage -->
+            <div id="designStage" class="w-full flex items-center justify-center px-12 sm:px-20 transition-all duration-300">
+              <!-- Dynamically injected active concept markup -->
+            </div>
+
+            <!-- Right Navigation Button -->
+            <button onclick="nextConcept()" class="absolute right-0 sm:right-2 md:right-6 z-20 w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-slate-900/90 hover:bg-blue-600 border border-slate-700/80 hover:border-blue-400 text-white flex flex-col items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all group backdrop-blur-md cursor-pointer" title="Next Design (Right Arrow Key [→])">
+              <span class="text-xl group-hover:translate-x-1 transition-transform">▶</span>
+              <span class="text-[9px] text-slate-400 group-hover:text-blue-100 font-mono-code mt-0.5 hidden sm:block">Right →</span>
+            </button>
+
+          </div>
+
+        </div>
+
+        <!-- ALL 10 SIDE-BY-SIDE PANORAMIC VIEW (Initially Hidden) -->
+        <div id="allConceptsContainer" class="hidden w-full z-10">
+          <div class="text-center max-w-xl mx-auto mb-8">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-2">
+              Panoramic Comparison
+            </span>
+            <h2 class="text-2xl font-bold tracking-tight text-white mb-1">All 10 Widget Designs Side-by-Side</h2>
+            <p class="text-xs text-slate-400">Directly compare every visual language, pill dock aesthetic, and dashboard architecture.</p>
+          </div>
+          <div id="allConceptsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <!-- All 10 cards populated via script -->
+          </div>
+        </div>
+
+        <!-- Desktop Taskbar Simulation at bottom of frame -->
+        <div class="mt-8 pt-4 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-500">
+          <div class="flex items-center gap-3">
+            <span class="w-2.5 h-2.5 rounded-sm bg-blue-500"></span>
+            <span>Windows 11 Desktop Taskbar Simulation</span>
+          </div>
+          <div class="flex items-center gap-4">
+            <span>Bottom Pill Dock: Pinned Above Taskbar</span>
+            <span class="font-mono-code text-[11px] text-slate-400">Auto-Start Boot: Active</span>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ================= CLIENT SCRIPTS & PROTOTYPE ENGINE ================= -->
+  <script>
+    // Global State
+    let currentConcept = 1;
+    let currentViewport = 'desktop';
+    let isTracking = false;
+    let elapsedSeconds = 8724; // 2h 25m 24s initial mock
+    let timerInterval = null;
+
+    // Concept Definitions
+    const concepts = [
+      {
+        id: 1,
+        title: "Obsidian Dark Fluent",
+        tag: "Concept 1 &middot; Precision Studio",
+        desc: "Sleek hairline graphite borders (#2E334D), monospace timestamping, and subtle blue/emerald glowing badges.",
+        themeClass: "obsidian",
+        pillBg: "bg-[#10121D] border-2 border-blue-500 shadow-xl shadow-blue-500/10",
+        dashBg: "bg-[#161824] border border-slate-700/80 shadow-2xl",
+        accentBtn: "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold",
+        pillAccent: "text-blue-400",
+        badgeStyle: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+      },
+      {
+        id: 2,
+        title: "Cyber Glassmorphism",
+        tag: "Concept 2 &middot; Translucent Frosted",
+        desc: "Deep frosted glass blur, neon cyan glow reflections, holographic gradient borders, and sleek modern typography.",
+        themeClass: "cyberglass",
+        pillBg: "bg-slate-900/60 backdrop-blur-xl border border-cyan-400/40 glow-cyan",
+        dashBg: "bg-slate-900/70 backdrop-blur-2xl border border-cyan-500/30 glow-cyan shadow-2xl",
+        accentBtn: "bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold",
+        pillAccent: "text-cyan-300",
+        badgeStyle: "bg-cyan-500/20 text-cyan-300 border border-cyan-400/30"
+      },
+      {
+        id: 3,
+        title: "Dynamic Island Cupertino",
+        tag: "Concept 3 &middot; Jet Black Ultra Pill",
+        desc: "Continuous organic pill curves, concentric ring progress, minimalist SF-inspired glyphs, and high-contrast typography.",
+        themeClass: "cupertino",
+        pillBg: "bg-black border border-neutral-800 rounded-full shadow-2xl ring-1 ring-white/10",
+        dashBg: "bg-neutral-950 border border-neutral-800 rounded-3xl shadow-2xl",
+        accentBtn: "bg-white text-black hover:bg-neutral-200 font-extrabold rounded-2xl",
+        pillAccent: "text-amber-400",
+        badgeStyle: "bg-white/10 text-white border border-white/20"
+      },
+      {
+        id: 4,
+        title: "Neo-Brutalism Pop",
+        tag: "Concept 4 &middot; Bold High-Contrast",
+        desc: "Chunky 3px solid black outlines, hard offset drop-shadows, vivid canary yellow cards, and tactile tactile buttons.",
+        themeClass: "neobrutal",
+        pillBg: "bg-amber-300 border-2 border-black neo-shadow text-black",
+        dashBg: "bg-slate-100 border-3 border-black neo-shadow text-slate-900",
+        accentBtn: "bg-emerald-400 text-black border-2 border-black neo-shadow-sm font-black hover:translate-x-0.5 hover:translate-y-0.5",
+        pillAccent: "text-black font-black",
+        badgeStyle: "bg-black text-white font-black"
+      },
+      {
+        id: 5,
+        title: "Retro CRT Terminal",
+        tag: "Concept 5 &middot; Phosphor Green Hacker",
+        desc: "Scanline overlay effect, glowing monochrome green CRT text, VT320 style bracketed commands, and digital ticks.",
+        themeClass: "retroterminal",
+        pillBg: "bg-black border border-emerald-500 glow-emerald font-mono-code text-emerald-400",
+        dashBg: "bg-black border-2 border-emerald-500 crt-grid glow-emerald font-mono-code text-emerald-400",
+        accentBtn: "bg-emerald-500 text-black font-bold font-mono-code hover:bg-emerald-400",
+        pillAccent: "text-emerald-400",
+        badgeStyle: "border border-emerald-500 text-emerald-400 bg-emerald-950/40"
+      },
+      {
+        id: 6,
+        title: "Nordic Clay Minimal",
+        tag: "Concept 6 &middot; Warm Serene Stone",
+        desc: "Subtle organic stone-gray backdrop, warm cream and sage accents, soft sculpted inset shadows, and zero visual friction.",
+        themeClass: "nordic",
+        pillBg: "bg-[#25282A] border border-[#3E4246] shadow-lg text-[#E6E8EA]",
+        dashBg: "bg-[#1E2022] border border-[#32363A] rounded-2xl text-[#E6E8EA]",
+        accentBtn: "bg-[#8FAF9F] text-[#141618] font-bold rounded-xl hover:bg-[#A1C1B1]",
+        pillAccent: "text-[#8FAF9F]",
+        badgeStyle: "bg-[#2E3338] text-[#A6C2B4] border border-[#3E444B]"
+      },
+      {
+        id: 7,
+        title: "Aurora Synthwave Neon",
+        tag: "Concept 7 &middot; Iridescent Electric",
+        desc: "Vibrant violet-to-fuchsia perimeter borders, deep night-sky purple glass, pulsing glow indicators, and electric contrast.",
+        themeClass: "aurora",
+        pillBg: "bg-[#140E26]/90 border border-fuchsia-500/50 glow-neon text-fuchsia-200",
+        dashBg: "bg-[#181130] border border-purple-500/40 glow-neon rounded-2xl",
+        accentBtn: "bg-gradient-to-r from-fuchsia-600 to-indigo-600 text-white font-bold shadow-lg shadow-fuchsia-500/30",
+        pillAccent: "text-fuchsia-400",
+        badgeStyle: "bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/40"
+      },
+      {
+        id: 8,
+        title: "Bento Studio Executive",
+        tag: "Concept 8 &middot; Modular Pro Grid",
+        desc: "Bento-box partitioned cards, weekly visual spark-bars, dedicated telemetry chips, and dark graphite finish.",
+        themeClass: "bento",
+        pillBg: "bg-[#161922] border border-slate-700 shadow-xl",
+        dashBg: "bg-[#0F1118] border border-slate-800 rounded-2xl",
+        accentBtn: "bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl",
+        pillAccent: "text-indigo-400",
+        badgeStyle: "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+      },
+      {
+        id: 9,
+        title: "Swiss Typography Mono",
+        tag: "Concept 9 &middot; Stark Hairline Bauhaus",
+        desc: "Stark black and white contrasts, razor-sharp hairline dividers, strong typographic hierarchy, and pure utilitarian focus.",
+        themeClass: "swiss",
+        pillBg: "bg-black border border-white/60 text-white shadow-xl",
+        dashBg: "bg-black border border-white/40 text-white rounded-none",
+        accentBtn: "bg-white text-black font-extrabold uppercase tracking-wider hover:bg-neutral-300",
+        pillAccent: "text-white",
+        badgeStyle: "border border-white text-white bg-transparent"
+      },
+      {
+        id: 10,
+        title: "Arc HUD Telemetry Pod",
+        tag: "Concept 10 &middot; Aerospace Cockpit",
+        desc: "Circular radial focus meter, segmented telemetry tick bars, angled corner accents, and high-tech tactical status.",
+        themeClass: "archud",
+        pillBg: "bg-[#0B1522] border border-cyan-500/60 shadow-lg text-cyan-400",
+        dashBg: "bg-[#09111C] border border-cyan-600/40 rounded-2xl text-slate-200",
+        accentBtn: "bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black uppercase tracking-wider",
+        pillAccent: "text-cyan-400",
+        badgeStyle: "bg-cyan-950/60 text-cyan-300 border border-cyan-500/40"
+      }
+    ];
+
+    // Format seconds into HH:MM:SS
+    function formatTime(totalSec) {
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    function formatHours(totalSec) {
+      return (totalSec / 3600).toFixed(2);
+    }
+
+    // Toggle Tracking State Simulation
+    function toggleTracking() {
+      isTracking = !isTracking;
+      if (isTracking) {
+        timerInterval = setInterval(() => {
+          elapsedSeconds++;
+          updateLiveDisplays();
+        }, 1000);
+      } else {
+        clearInterval(timerInterval);
+      }
+      renderConcept(currentConcept);
+    }
+
+    function updateLiveDisplays() {
+      const timeStr = formatTime(elapsedSeconds);
+      const hoursStr = formatHours(elapsedSeconds);
+
+      document.querySelectorAll('.live-timer-text').forEach(el => el.textContent = timeStr);
+      document.querySelectorAll('.live-hours-text').forEach(el => el.textContent = `${hoursStr}h`);
+    }
+
+    // Viewport Switcher Handler
+    function setViewport(mode) {
+      currentViewport = mode;
+      const frame = document.getElementById('deviceFrame');
+      const badge = document.getElementById('resolutionBadge');
+      
+      document.querySelectorAll('.vp-btn').forEach(btn => {
+        btn.classList.remove('bg-blue-600', 'text-white');
+        btn.classList.add('text-slate-400');
+      });
+
+      if (mode === 'desktop') {
+        frame.style.maxWidth = '1280px';
+        badge.textContent = '1280 × 860 px';
+        document.getElementById('vp-desktop').classList.add('bg-blue-600', 'text-white');
+      } else if (mode === 'tablet') {
+        frame.style.maxWidth = '768px';
+        badge.textContent = '768 × 920 px';
+        document.getElementById('vp-tablet').classList.add('bg-blue-600', 'text-white');
+      } else if (mode === 'mobile') {
+        frame.style.maxWidth = '390px';
+        badge.textContent = '390 × 844 px';
+        document.getElementById('vp-mobile').classList.add('bg-blue-600', 'text-white');
+      }
+    }
+
+    // Concept Switcher Handler
+    function setConcept(id) {
+      currentConcept = id;
+      
+      // Update Tab Styles
+      document.querySelectorAll('.concept-tab').forEach(tab => {
+        tab.classList.remove('bg-blue-600', 'text-white');
+        tab.classList.add('bg-slate-800/80', 'text-slate-300');
+      });
+
+      // Update Header Index Badge Counter
+      const badge = document.getElementById('conceptIndexBadge');
+      if (badge) {
+        badge.textContent = (id === 'all') ? 'All / 10' : `${id} / 10`;
+      }
+
+      if (id === 'all') {
+        document.getElementById('tab-all').classList.add('bg-emerald-500', 'text-white');
+        document.getElementById('singleConceptContainer').classList.add('hidden');
+        document.getElementById('allConceptsContainer').classList.remove('hidden');
+        renderAllGrid();
+      } else {
+        const activeTab = document.getElementById(`tab-${id}`);
+        if (activeTab) {
+          activeTab.classList.remove('bg-slate-800/80', 'text-slate-300');
+          activeTab.classList.add('bg-blue-600', 'text-white');
+          activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+        document.getElementById('singleConceptContainer').classList.remove('hidden');
+        document.getElementById('allConceptsContainer').classList.add('hidden');
+        renderConcept(id);
+      }
+    }
+
+    // Previous Concept (Cycles 10 -> 9 -> ... -> 1 -> 10)
+    function prevConcept() {
+      if (currentConcept === 'all') {
+        setConcept(10);
+      } else {
+        let prevId = currentConcept - 1;
+        if (prevId < 1) prevId = 10;
+        setConcept(prevId);
+      }
+    }
+
+    // Next Concept (Cycles 1 -> 2 -> ... -> 10 -> 1)
+    function nextConcept() {
+      if (currentConcept === 'all') {
+        setConcept(1);
+      } else {
+        let nextId = currentConcept + 1;
+        if (nextId > 10) nextId = 1;
+        setConcept(nextId);
+      }
+    }
+
+    // Keyboard Arrow Keys (Left & Right) Navigation
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') {
+        prevConcept();
+      } else if (e.key === 'ArrowRight') {
+        nextConcept();
+      }
+    });
+
+    // Generate Widget HTML for a concept
+    function generateWidgetMarkup(c, isSmallPreview = false) {
+      const timeStr = formatTime(elapsedSeconds);
+      const hoursStr = formatHours(elapsedSeconds);
+      const activeColorDot = isTracking ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400';
+      const statusText = isTracking ? '● PRODUCTIVE' : 'IDLE';
+
+      return `
+        <!-- DUAL VIEW CONTAINER (PILL + DASHBOARD) -->
+        <div class="flex flex-col items-center gap-6 w-full max-w-sm">
+          
+          <!-- 1. EXPANDED DASHBOARD WIDGET PREVIEW -->
+          <div class="w-full ${c.dashBg} p-5 rounded-2xl flex flex-col gap-4 transition-all">
+            
+            <!-- Header bar -->
+            <div class="flex items-center justify-between pb-2 border-b border-white/10">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold tracking-wider">⏱ PRODIGIT</span>
+                <span class="text-[10px] ${c.badgeStyle} px-2 py-0.5 rounded-full font-semibold">${statusText}</span>
+              </div>
+              <div class="flex items-center gap-1.5 text-xs text-slate-400">
+                <button class="hover:text-white px-1.5 py-0.5 rounded bg-white/5" title="Pin Always on Top">📌</button>
+                <button class="hover:text-white px-1.5 py-0.5 rounded bg-white/5" title="Collapse to Pill">⌄</button>
+                <button class="hover:text-rose-400 px-1.5 py-0.5 rounded bg-white/5" title="Close">✕</button>
+              </div>
+            </div>
+
+            <!-- Timer Live Card -->
+            <div class="bg-black/40 rounded-xl p-4 border border-white/5 text-center flex flex-col items-center">
+              <span class="text-[11px] text-slate-400 font-medium">Active Focus Session</span>
+              <div class="live-timer-text text-3xl sm:text-4xl font-extrabold font-mono-code my-1 tracking-tight">
+                ${timeStr}
+              </div>
+              <span class="text-[11px] text-slate-400">Since 09:15:00 AM &middot; Real-time sync</span>
+
+              <button onclick="toggleTracking()" class="mt-3.5 w-full py-2.5 px-4 rounded-xl text-xs ${c.accentBtn} transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md">
+                <span>${isTracking ? '⏹' : '▶'}</span>
+                <span>${isTracking ? 'STOP SESSION' : 'START PRODUCTIVITY'}</span>
+              </button>
+            </div>
+
+            <!-- Summary Stats Block -->
+            <div class="grid grid-cols-2 gap-2 bg-black/20 p-2.5 rounded-xl border border-white/5">
+              <div>
+                <div class="text-[10px] text-slate-400 font-medium uppercase">Today's Focus</div>
+                <div class="live-hours-text text-base font-bold text-blue-400">${hoursStr}h</div>
+              </div>
+              <div class="text-right">
+                <div class="text-[10px] text-slate-400 font-medium uppercase">Completed</div>
+                <div class="text-base font-bold text-slate-200">3 Sessions</div>
+              </div>
+            </div>
+
+            <!-- Filter Range Switcher -->
+            <div class="flex items-center justify-between gap-1 bg-white/5 p-1 rounded-lg text-[11px]">
+              <button class="px-2 py-1 rounded bg-blue-600 text-white font-semibold">Today</button>
+              <button class="px-2 py-1 rounded text-slate-400 hover:text-white">7 Days</button>
+              <button class="px-2 py-1 rounded text-slate-400 hover:text-white">30 Days</button>
+              <button class="px-2 py-1 rounded text-slate-400 hover:text-white">3 Months</button>
+            </div>
+
+            <!-- Timeline List -->
+            <div class="flex flex-col gap-1.5 max-h-44 overflow-y-auto no-scrollbar text-xs">
+              ${isTracking ? `
+                <div class="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/40 flex items-center justify-between">
+                  <div>
+                    <div class="font-bold text-emerald-400 flex items-center gap-1.5">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                      <span>09:15 AM ➔ Ongoing</span>
+                    </div>
+                    <div class="text-[10px] text-emerald-300/80">Active Right Now</div>
+                  </div>
+                  <span class="live-timer-text font-mono-code font-bold text-emerald-400">${timeStr}</span>
+                </div>
+              ` : ''}
+
+              <div class="p-2.5 rounded-lg bg-white/5 border border-white/5 flex items-center justify-between">
+                <div>
+                  <div class="font-semibold text-slate-200">07:00 AM ➔ 08:30 AM</div>
+                  <div class="text-[10px] text-slate-400">Deep Work &middot; Architecture</div>
+                </div>
+                <div class="text-right flex items-center gap-2">
+                  <span class="font-mono-code text-emerald-400 font-semibold">1h 30m</span>
+                  <button class="text-slate-500 hover:text-rose-400" title="Delete">🗑</button>
+                </div>
+              </div>
+
+              <div class="p-2.5 rounded-lg bg-white/5 border border-white/5 flex items-center justify-between">
+                <div>
+                  <div class="font-semibold text-slate-200">05:15 AM ➔ 06:10 AM</div>
+                  <div class="text-[10px] text-slate-400">Morning Review</div>
+                </div>
+                <div class="text-right flex items-center gap-2">
+                  <span class="font-mono-code text-emerald-400 font-semibold">55m</span>
+                  <button class="text-slate-500 hover:text-rose-400" title="Delete">🗑</button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- 2. DOCKED BOTTOM-CENTER PILL PREVIEW -->
+          <div class="flex flex-col items-center gap-1 w-full">
+            <span class="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
+              <span>👇 Floating Bottom-Center Desktop Pill:</span>
+            </span>
+            <div class="${c.pillBg} px-4 py-2.5 rounded-full flex items-center gap-3 cursor-pointer hover:scale-105 transition-transform" onclick="toggleTracking()">
+              <span class="w-2.5 h-2.5 rounded-full ${activeColorDot}"></span>
+              <span class="live-timer-text text-xs font-mono-code font-bold tracking-tight">
+                ${isTracking ? timeStr : `Today: ${hoursStr}h`}
+              </span>
+              <button class="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[10px] hover:bg-white/20 transition-colors">
+                ${isTracking ? '⏹' : '▶'}
+              </button>
+              <button class="text-slate-400 hover:text-white text-xs" title="Expand Dashboard">⛶</button>
+            </div>
+          </div>
+
+        </div>
+      `;
+    }
+
+    // Render a single active concept
+    function renderConcept(id) {
+      const c = concepts.find(item => item.id === id);
+      if (!c) return;
+
+      document.getElementById('conceptTagline').innerHTML = c.tag;
+      document.getElementById('conceptTitle').textContent = c.title;
+      document.getElementById('conceptDesc').textContent = c.desc;
+
+      const stage = document.getElementById('designStage');
+      stage.innerHTML = generateWidgetMarkup(c);
+    }
+
+    // Render All 10 Grid Comparison
+    function renderAllGrid() {
+      const grid = document.getElementById('allConceptsGrid');
+      grid.innerHTML = concepts.map(c => `
+        <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800 hover:border-blue-500/50 transition-all flex flex-col justify-between">
+          <div class="mb-3">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs font-bold text-white">${c.id}. ${c.title}</span>
+              <span class="text-[10px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">${c.themeClass}</span>
+            </div>
+            <p class="text-[11px] text-slate-400 line-clamp-2">${c.desc}</p>
+          </div>
+          <div class="transform scale-90 origin-top">
+            ${generateWidgetMarkup(c, true)}
+          </div>
+          <button onclick="setConcept(${c.id})" class="mt-3 w-full py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white text-xs font-semibold transition-all">
+            Inspect Full Size &rarr;
+          </button>
+        </div>
+      `).join('');
+    }
+
+    // Initial Bootstrap
+    document.addEventListener('DOMContentLoaded', () => {
+      renderConcept(1);
+    });
+  </script>
+</body>
+</html>
