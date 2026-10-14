@@ -85,7 +85,6 @@ QWidget {
     background-color: rgba(255, 255, 255, 0.03);
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 14px 12px;
 }
 
 #timerTopLabel {
@@ -135,7 +134,6 @@ QWidget {
     background-color: rgba(255, 255, 255, 0.03);
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 10px 14px;
 }
 
 #summaryNumberBlue {
@@ -272,21 +270,29 @@ QScrollArea {
 /* Custom Scrollbar */
 QScrollBar:vertical {
     border: none;
-    background: transparent;
-    width: 4px;
+    background: rgba(255, 255, 255, 0.04);
+    width: 6px;
+    border-radius: 3px;
+    margin: 0px 0px 0px 2px;
 }
 
 QScrollBar::handle:vertical {
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.35);
+    border-radius: 3px;
+    min-height: 24px;
 }
 
 QScrollBar::handle:vertical:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.65);
 }
 
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0px;
+    background: none;
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: none;
 }
 
 /* ================= FLOATING BOTTOM PILL DOCK ================= */

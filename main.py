@@ -274,8 +274,9 @@ class ProductivityWidget(QWidget):
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setMinimumWidth(330)
-        self.setMaximumWidth(350)
-        self.resize(340, 485)
+        self.setMaximumWidth(360)
+        self.setMinimumHeight(480)
+        self.resize(340, 520)
 
         self.setStyleSheet(styles.DARK_THEME)
         self.init_ui()
@@ -464,6 +465,8 @@ class ProductivityWidget(QWidget):
         # 6. Session List
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.scroll_content = QWidget()
         self.session_list_layout = QVBoxLayout(self.scroll_content)
         self.session_list_layout.setContentsMargins(0, 0, 4, 0)
@@ -475,10 +478,17 @@ class ProductivityWidget(QWidget):
         outer_layout.addWidget(self.container)
         self.update_filter_button_styles()
 
+        # Install wheel event filter so scrolling anywhere on the widget scrolls the session list
+        self.installEventFilter(self)
+        self.container.installEventFilter(self)
+        self.scroll_area.installEventFilter(self)
+        self.scroll_area.viewport().installEventFilter(self)
+        self.scroll_content.installEventFilter(self)
+
     def position_above_pill(self):
         screen = QApplication.primaryScreen().availableGeometry()
         w = 340
-        h = 485
+        h = 520
         x = screen.x() + (screen.width() - w) // 2
         y = screen.y() + screen.height() - h - 68
         if y < screen.y() + 10:
@@ -507,6 +517,22 @@ class ProductivityWidget(QWidget):
                 if not getattr(self, "modal_open", False) and not self.is_pinned:
                     self.controller.last_dashboard_close_time = time.time()
                     self.hide()
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.Wheel:
+            delta = event.angleDelta().y()
+            step = int((delta / 120.0) * 50)
+            vbar = self.scroll_area.verticalScrollBar()
+            vbar.setValue(vbar.value() - step)
+            return True
+        return super().eventFilter(obj, event)
+
+    def wheelEvent(self, event):
+        delta = event.angleDelta().y()
+        step = int((delta / 120.0) * 50)
+        vbar = self.scroll_area.verticalScrollBar()
+        vbar.setValue(vbar.value() - step)
+        event.accept()
 
     def set_filter_mode(self, mode):
         self.current_filter_mode = mode
@@ -652,6 +678,7 @@ class ProductivityWidget(QWidget):
         self.active_card_dur_lbl.setStyleSheet("color: #34D399; font-weight: 800; font-size: 13px; font-family: 'Consolas', monospace;")
         card_layout.addWidget(self.active_card_dur_lbl)
 
+        card.installEventFilter(self)
         return card
 
     def create_session_card(self, session_data):
@@ -691,6 +718,7 @@ class ProductivityWidget(QWidget):
         del_btn.clicked.connect(lambda checked, s_id=session_id: self.delete_session(s_id))
         card_layout.addWidget(del_btn)
 
+        card.installEventFilter(self)
         return card
 
     def delete_session(self, session_id):
@@ -901,8 +929,19 @@ class AppController:
         QApplication.quit()
 
 if __name__ == "__main__":
+    import ctypes
+    try:
+        myappid = 'prodigit.productivity.widget.1.0'
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+    except Exception:
+        pass
+
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)  # Keep running in pill / tray
+
+    icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prodigit.ico")
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
     
     font = QFont("Segoe UI", 10)
     app.setFont(font)

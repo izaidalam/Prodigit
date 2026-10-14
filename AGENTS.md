@@ -11,3 +11,11 @@ Whenever the user requests UI/UX designs, Figma mockups, layout concepts, or vis
 3. **Simulated Browser & Device Frame**:
    - Embed the prototype directly inside a simulated browser/device frame (with macOS window controls, URL bar, and active resolution label) that smoothly resizes according to the active viewport.
 4. **Always Export to Downloads Folder**: Whenever you generate HTML UI designs, artifacts, or prototypes for the user, you must automatically move or copy the resulting `.html` files to the user's local Downloads folder (`C:\Users\Zaid alam\Downloads`). Do this seamlessly using a shell command.
+
+---
+
+---
+
+## Git & Deployment Policy (Mandatory Always)
+- **Keep Changes Local**: Do **not** commit or push changes on every update. Keep all code edits local until the user explicitly asks you to commit or push.
+- **Always Use PR for Main**: Whenever user asks to push to main, first push to dev branch, commit and make a PR and then merge it. Always make PR for pushing to main.
