@@ -2,14 +2,20 @@ import sys
 import os
 import time
 import math
+import ctypes
+from ctypes import wintypes
 from datetime import datetime, date, timedelta
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFrame, QScrollArea, QGraphicsDropShadowEffect,
-    QCalendarWidget, QDialog, QMessageBox, QMenu, QSystemTrayIcon
+    QCalendarWidget, QDialog, QMessageBox, QMenu, QSystemTrayIcon,
+    QKeySequenceEdit, QGridLayout, QLineEdit
 )
-from PyQt6.QtCore import Qt, QTimer, QPoint, QDate, QEvent, QPropertyAnimation, QEasingCurve, pyqtProperty, QPointF
-from PyQt6.QtGui import QColor, QFont, QCursor, QIcon, QAction, QPixmap, QPainter, QBrush
+from PyQt6.QtCore import Qt, QTimer, QPoint, QDate, QEvent, QPropertyAnimation, QEasingCurve, pyqtProperty, QPointF, pyqtSignal
+from PyQt6.QtGui import QColor, QFont, QCursor, QIcon, QAction, QPixmap, QPainter, QBrush, QKeySequence
+from PyQt6.QtNetwork import QLocalServer, QLocalSocket
+
+LOCAL_SERVER_NAME = "prodigit_single_instance_ipc"
 
 import database
 import styles
@@ -80,6 +86,309 @@ class CalendarDialog(QDialog):
     def get_selected_date(self):
         qdate = self.calendar.selectedDate()
         return date(qdate.year(), qdate.month(), qdate.day())
+
+def parse_shortcut_to_windows(shortcut_str):
+    """Parses a shortcut string into (modifiers, vk_code) for Windows RegisterHotKey."""
+    MOD_ALT = 0x0001
+    MOD_CONTROL = 0x0002
+    MOD_SHIFT = 0x0004
+    MOD_WIN = 0x0008
+
+    parts = [p.strip() for p in shortcut_str.split("+") if p.strip()]
+    if not parts:
+        return None, None
+
+    mod = 0
+    key_part = None
+
+    for p in parts:
+        lower = p.lower()
+        if lower in ("ctrl", "control"):
+            mod |= MOD_CONTROL
+        elif lower in ("alt",):
+            mod |= MOD_ALT
+        elif lower in ("shift",):
+            mod |= MOD_SHIFT
+        elif lower in ("win", "meta", "super"):
+            mod |= MOD_WIN
+        else:
+            key_part = p
+
+    if not key_part:
+        return None, None
+
+    key_upper = key_part.upper()
+    if len(key_upper) == 1 and 'A' <= key_upper <= 'Z':
+        vk = ord(key_upper)
+    elif len(key_upper) == 1 and '0' <= key_upper <= '9':
+        vk = ord(key_upper)
+    elif key_upper.startswith("F") and key_upper[1:].isdigit():
+        f_num = int(key_upper[1:])
+        vk = 0x6F + f_num if 1 <= f_num <= 24 else None
+    elif key_upper in ("SPACE", "SPACEBAR"):
+        vk = 0x20
+    elif key_upper in ("TAB",):
+        vk = 0x09
+    elif key_upper in ("RETURN", "ENTER"):
+        vk = 0x0D
+    elif key_upper in ("ESC", "ESCAPE"):
+        vk = 0x1B
+    elif key_upper in ("BACKSPACE", "BKSP"):
+        vk = 0x08
+    elif key_upper in ("DELETE", "DEL"):
+        vk = 0x2E
+    elif key_upper in ("INSERT", "INS"):
+        vk = 0x2D
+    elif key_upper in ("HOME",):
+        vk = 0x24
+    elif key_upper in ("END",):
+        vk = 0x23
+    elif key_upper in ("PAGEUP", "PGUP"):
+        vk = 0x21
+    elif key_upper in ("PAGEDOWN", "PGDN"):
+        vk = 0x22
+    elif key_upper in ("UP",):
+        vk = 0x26
+    elif key_upper in ("DOWN",):
+        vk = 0x28
+    elif key_upper in ("LEFT",):
+        vk = 0x25
+    elif key_upper in ("RIGHT",):
+        vk = 0x27
+    else:
+        ctypes.windll.user32.VkKeyScanW.restype = ctypes.c_short
+        vk_scan = ctypes.windll.user32.VkKeyScanW(ord(key_part[0]))
+        vk = (vk_scan & 0xFF) if vk_scan != -1 else None
+
+    return mod, vk
+
+class HotkeyReceiver(QWidget):
+    hotkey_triggered = pyqtSignal()
+
+    def __init__(self, callback):
+        super().__init__()
+        self.callback = callback
+        self.hotkey_id = 1
+        self.registered = False
+        self.current_mod = 0
+        self.current_vk = 0
+        self.hotkey_triggered.connect(self.callback)
+
+    def register_hotkey(self, mod, vk):
+        self.unregister_hotkey()
+        hwnd = int(self.winId())
+        # Try registering with MOD_NOREPEAT (0x4000)
+        res = ctypes.windll.user32.RegisterHotKey(hwnd, self.hotkey_id, mod | 0x4000, vk)
+        if not res:
+            res = ctypes.windll.user32.RegisterHotKey(hwnd, self.hotkey_id, mod, vk)
+        if res:
+            self.registered = True
+            self.current_mod = mod
+            self.current_vk = vk
+            return True
+        return False
+
+    def unregister_hotkey(self):
+        if self.registered:
+            hwnd = int(self.winId())
+            ctypes.windll.user32.UnregisterHotKey(hwnd, self.hotkey_id)
+            self.registered = False
+
+    def nativeEvent(self, eventType, message):
+        if eventType == b"windows_generic_MSG":
+            msg = wintypes.MSG.from_address(int(message))
+            if msg.message == 0x0312 and msg.wParam == self.hotkey_id:
+                self.hotkey_triggered.emit()
+                return True, 0
+        return False, 0
+
+class ShortcutDialog(QDialog):
+    def __init__(self, current_shortcut, controller, parent=None):
+        super().__init__(parent)
+        self.controller = controller
+        self.current_shortcut = current_shortcut
+        self.drag_pos = None
+        
+        self.setWindowTitle("Assign Shortcut Key")
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setFixedWidth(380)
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(10, 10, 10, 10)
+
+        container = QFrame()
+        container.setObjectName("shortcutDialog")
+        
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(24)
+        shadow.setColor(QColor(0, 0, 0, 220))
+        shadow.setOffset(0, 6)
+        container.setGraphicsEffect(shadow)
+
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        # Top Classification / Header Bar (Swiss Hairline Border)
+        header_frame = QFrame()
+        header_frame.setObjectName("shortcutHeaderFrame")
+        header_layout = QHBoxLayout(header_frame)
+        header_layout.setContentsMargins(18, 12, 14, 12)
+
+        title = QLabel("ASSIGN SHORTCUT")
+        title.setObjectName("shortcutDialogTitle")
+
+        close_btn = QPushButton("✕")
+        close_btn.setObjectName("headerCloseBtn")
+        close_btn.setFixedSize(22, 22)
+        close_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        close_btn.clicked.connect(self.reject)
+
+        header_layout.addWidget(title)
+        header_layout.addStretch()
+        header_layout.addWidget(close_btn)
+        layout.addWidget(header_frame)
+
+        # Content Body
+        content_frame = QFrame()
+        content_layout = QVBoxLayout(content_frame)
+        content_layout.setContentsMargins(20, 18, 20, 18)
+        content_layout.setSpacing(14)
+
+        # Hero Title (Leading straight into heading per Strict No-Eyebrow Policy)
+        hero_title = QLabel("Toggle Bottom Floating Pill")
+        hero_title.setObjectName("shortcutHeroTitle")
+        content_layout.addWidget(hero_title)
+
+        # Key Input Box (Strict Grid Bordered)
+        key_box = QFrame()
+        key_box.setObjectName("shortcutKeyBox")
+        key_box_layout = QVBoxLayout(key_box)
+        key_box_layout.setContentsMargins(14, 12, 14, 12)
+        key_box_layout.setSpacing(6)
+
+        self.seq_edit = QKeySequenceEdit(QKeySequence(self.current_shortcut))
+        self.seq_edit.setObjectName("shortcutKeyEdit")
+        line_edit = self.seq_edit.findChild(QLineEdit)
+        if line_edit:
+            line_edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            line_edit.setFrame(False)
+        key_box_layout.addWidget(self.seq_edit)
+
+        hint_lbl = QLabel("Click box to assign new hotkey")
+        hint_lbl.setObjectName("shortcutKeyHint")
+        hint_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        key_box_layout.addWidget(hint_lbl)
+
+        content_layout.addWidget(key_box)
+
+        # Presets Section (2x2 Grid)
+        presets_grid = QGridLayout()
+        presets_grid.setContentsMargins(0, 0, 0, 0)
+        presets_grid.setSpacing(8)
+
+        presets = [
+            ("Ctrl+Shift+P", "DEFAULT"),
+            ("Alt+P", "COMPACT"),
+            ("Ctrl+Alt+P", "ERGONOMIC"),
+            ("F9", "SINGLE-KEY")
+        ]
+
+        for i, (seq, tag) in enumerate(presets):
+            btn = QPushButton()
+            btn.setObjectName("presetGridBtn")
+            btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            
+            btn_layout = QHBoxLayout(btn)
+            btn_layout.setContentsMargins(12, 8, 12, 8)
+            
+            key_lbl = QLabel(seq)
+            key_lbl.setObjectName("presetKeyText")
+            key_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+
+            tag_lbl = QLabel(tag)
+            tag_lbl.setObjectName("presetTagText")
+            tag_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+
+            btn_layout.addWidget(key_lbl)
+            btn_layout.addStretch()
+            btn_layout.addWidget(tag_lbl)
+
+            btn.clicked.connect(lambda checked, s=seq: self.set_preset(s))
+            presets_grid.addWidget(btn, i // 2, i % 2)
+
+        content_layout.addLayout(presets_grid)
+
+        # Status / Error Label
+        self.status_lbl = QLabel("")
+        self.status_lbl.setObjectName("shortcutStatusLbl")
+        self.status_lbl.setWordWrap(True)
+        self.status_lbl.hide()
+        content_layout.addWidget(self.status_lbl)
+
+        layout.addWidget(content_frame)
+
+        # Bottom Actions Bar
+        actions_frame = QFrame()
+        actions_frame.setObjectName("shortcutActionsFrame")
+        actions_layout = QHBoxLayout(actions_frame)
+        actions_layout.setContentsMargins(20, 14, 20, 14)
+
+        reset_btn = QPushButton("Reset")
+        reset_btn.setObjectName("resetShortcutBtn")
+        reset_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        reset_btn.clicked.connect(lambda: self.set_preset("Ctrl+Shift+P"))
+        actions_layout.addWidget(reset_btn)
+
+        actions_layout.addStretch()
+
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setObjectName("cancelShortcutBtn")
+        cancel_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        cancel_btn.clicked.connect(self.reject)
+
+        save_btn = QPushButton("Save && Apply")
+        save_btn.setObjectName("saveShortcutBtn")
+        save_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        save_btn.clicked.connect(self.save_shortcut)
+
+        actions_layout.addWidget(cancel_btn)
+        actions_layout.addWidget(save_btn)
+        layout.addWidget(actions_frame)
+
+        outer.addWidget(container)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() == Qt.MouseButton.LeftButton and self.drag_pos is not None:
+            self.move(event.globalPosition().toPoint() - self.drag_pos)
+            event.accept()
+
+    def mouseReleaseEvent(self, event):
+        self.drag_pos = None
+
+    def set_preset(self, text):
+        self.seq_edit.setKeySequence(QKeySequence(text))
+
+    def save_shortcut(self):
+        seq = self.seq_edit.keySequence()
+        text = seq.toString(QKeySequence.SequenceFormat.PortableText).strip()
+        if not text:
+            self.status_lbl.setText("Please press a valid key combination.")
+            self.status_lbl.show()
+            return
+
+        success, msg = self.controller.update_shortcut(text)
+        if success:
+            self.accept()
+        else:
+            self.status_lbl.setText(msg)
+            self.status_lbl.show()
 
 class PulsingDot(QWidget):
     """
@@ -333,6 +642,9 @@ class SmallPillWidget(QWidget):
         action_start_stop.triggered.connect(self.controller.toggle_session)
 
         menu.addSeparator()
+        action_shortcut = menu.addAction(f"Assign Shortcut Key ({self.controller.current_shortcut})...")
+        action_shortcut.triggered.connect(self.controller.open_shortcut_dialog)
+
         action_reset_pos = menu.addAction("Reset to Bottom Center")
         action_reset_pos.triggered.connect(self.position_bottom_center)
 
@@ -398,26 +710,30 @@ class ProductivityWidget(QWidget):
         header.setContentsMargins(0, 0, 0, 8)
         
         title_box = QHBoxLayout()
-        title_box.setSpacing(8)
+        title_box.setSpacing(6)
         
-        app_title = QLabel("⏱ PRODIGIT")
+        self.title_icon = QLabel("⏱")
+        self.title_icon.setObjectName("appTitleIcon")
+
+        app_title = QLabel("PRODIGIT")
         app_title.setObjectName("appTitle")
         
         self.status_badge = QLabel("IDLE")
         self.status_badge.setObjectName("statusBadgeIdle")
         
+        title_box.addWidget(self.title_icon)
         title_box.addWidget(app_title)
         title_box.addWidget(self.status_badge)
 
-        self.pin_btn = QPushButton("📌")
-        self.pin_btn.setObjectName("headerIconBtn")
-        self.pin_btn.setToolTip("Click to Pin (Keeps window open when clicking outside)")
-        self.pin_btn.clicked.connect(self.toggle_pin)
+        self.shortcut_btn = QPushButton("⌨")
+        self.shortcut_btn.setObjectName("headerIconBtn")
+        self.shortcut_btn.setToolTip(f"Assign Shortcut Key (Pill: {self.controller.current_shortcut})")
+        self.shortcut_btn.clicked.connect(self.controller.open_shortcut_dialog)
 
-        collapse_btn = QPushButton("⌄")
-        collapse_btn.setObjectName("headerIconBtn")
-        collapse_btn.setToolTip("Collapse to Bottom Widget")
-        collapse_btn.clicked.connect(self.hide)
+        self.pin_btn = QPushButton()
+        self.pin_btn.setObjectName("headerIconBtn")
+        self.update_pin_ui()
+        self.pin_btn.clicked.connect(self.toggle_pin)
 
         close_btn = QPushButton("✕")
         close_btn.setObjectName("headerCloseBtn")
@@ -426,8 +742,8 @@ class ProductivityWidget(QWidget):
 
         header.addLayout(title_box)
         header.addStretch()
+        header.addWidget(self.shortcut_btn)
         header.addWidget(self.pin_btn)
-        header.addWidget(collapse_btn)
         header.addWidget(close_btn)
         layout.addWidget(header_frame)
 
@@ -583,17 +899,22 @@ class ProductivityWidget(QWidget):
             y = screen.y() + 10
         self.setGeometry(x, y, w, h)
 
+    def update_pin_ui(self):
+        if self.is_pinned:
+            self.pin_btn.setText("📌")
+            self.pin_btn.setToolTip("Pinned (Always on top & stays open)")
+        else:
+            self.pin_btn.setText("📍")
+            self.pin_btn.setToolTip("Unpinned (Click to pin & keep open)")
+
     def toggle_pin(self):
         self.is_pinned = not self.is_pinned
         flags = self.windowFlags()
         if self.is_pinned:
             flags |= Qt.WindowType.WindowStaysOnTopHint
-            self.pin_btn.setText("📌")
-            self.pin_btn.setToolTip("Pinned (Always on top & stays open)")
         else:
             flags &= ~Qt.WindowType.WindowStaysOnTopHint
-            self.pin_btn.setText("📍")
-            self.pin_btn.setToolTip("Unpinned (Closes when clicking outside)")
+        self.update_pin_ui()
         self.setWindowFlags(flags)
         self.show()
 
@@ -852,6 +1173,17 @@ class AppController:
         self.session_start_dt = None
         self.last_dashboard_close_time = 0
 
+        # Setup local IPC server for single-instance communication
+        self.local_server = QLocalServer()
+        self.local_server.removeServer(LOCAL_SERVER_NAME)
+        self.local_server.listen(LOCAL_SERVER_NAME)
+        self.local_server.newConnection.connect(self.handle_ipc_connection)
+
+        # Load assigned global shortcut (default: Ctrl+Shift+P)
+        self.current_shortcut = database.get_setting("pill_shortcut", "Ctrl+Shift+P")
+        self.hotkey_receiver = HotkeyReceiver(self.toggle_pill)
+        self.apply_shortcut(self.current_shortcut)
+
         self.pill = SmallPillWidget(self)
         self.dashboard = ProductivityWidget(self)
 
@@ -860,10 +1192,60 @@ class AppController:
         self.check_resumed_session()
         self.refresh_all()
 
-        # Start with the small bottom pill visible on desktop
-        self.pill.show()
-        self.pill.raise_()
-        self.pill.activateWindow()
+        # If launched on Windows boot/startup with --startup, stay hidden in background.
+        # Otherwise (normal launch by user), display floating pill on screen.
+        is_startup = "--startup" in sys.argv
+        if not is_startup:
+            self.pill.show()
+            self.pill.raise_()
+            self.pill.activateWindow()
+
+    def handle_ipc_connection(self):
+        client = self.local_server.nextPendingConnection()
+        if client:
+            client.readyRead.connect(lambda: self.on_ipc_message(client))
+
+    def on_ipc_message(self, client):
+        msg = bytes(client.readAll()).decode("utf-8", errors="ignore").strip()
+        if msg == "toggle":
+            self.toggle_pill()
+        else:
+            if not self.pill.isVisible():
+                self.pill.show()
+            self.pill.raise_()
+            self.pill.activateWindow()
+
+    def apply_shortcut(self, shortcut_str):
+        mod, vk = parse_shortcut_to_windows(shortcut_str)
+        if mod is None or vk is None:
+            return False, "Invalid shortcut format"
+        ok = self.hotkey_receiver.register_hotkey(mod, vk)
+        if ok:
+            return True, "Shortcut registered successfully"
+        return False, "Could not register shortcut. It might be in use by another application."
+
+    def update_shortcut(self, new_shortcut_str):
+        old_shortcut = self.current_shortcut
+        ok, msg = self.apply_shortcut(new_shortcut_str)
+        if ok:
+            self.current_shortcut = new_shortcut_str
+            database.set_setting("pill_shortcut", new_shortcut_str)
+            if hasattr(self.dashboard, "shortcut_btn"):
+                self.dashboard.shortcut_btn.setToolTip(f"Assign Shortcut Key (Pill: {self.current_shortcut})")
+            if hasattr(self, "tray_shortcut_action"):
+                self.tray_shortcut_action.setText(f"Assign Shortcut Key ({self.current_shortcut})...")
+            return True, "Shortcut registered successfully"
+        else:
+            self.apply_shortcut(old_shortcut)
+            return False, f"Could not register '{new_shortcut_str}'. It might be in use by another program."
+
+    def open_shortcut_dialog(self):
+        self.dashboard.modal_open = True
+        try:
+            dlg = ShortcutDialog(self.current_shortcut, self, self.dashboard)
+            dlg.exec()
+        finally:
+            self.dashboard.modal_open = False
 
     def setup_timer(self):
         self.timer = QTimer()
@@ -898,6 +1280,10 @@ class AppController:
         toggle_pill_action.triggered.connect(self.toggle_pill)
         tray_menu.addAction(toggle_pill_action)
 
+        self.tray_shortcut_action = QAction(f"Assign Shortcut Key ({self.current_shortcut})...", tray_menu)
+        self.tray_shortcut_action.triggered.connect(self.open_shortcut_dialog)
+        tray_menu.addAction(self.tray_shortcut_action)
+
         open_dash_action = QAction("Open Full Dashboard", tray_menu)
         open_dash_action.triggered.connect(self.open_dashboard)
         tray_menu.addAction(open_dash_action)
@@ -927,9 +1313,12 @@ class AppController:
     def toggle_pill(self):
         if self.pill.isVisible():
             self.pill.hide()
+            if self.dashboard.isVisible():
+                self.dashboard.hide()
         else:
             self.pill.show()
             self.pill.raise_()
+            self.pill.activateWindow()
 
     def open_dashboard(self):
         self.dashboard.refresh_history()
@@ -1039,6 +1428,11 @@ class AppController:
         self.update_tray_icon()
 
     def quit_app(self):
+        if hasattr(self, "hotkey_receiver"):
+            self.hotkey_receiver.unregister_hotkey()
+        if hasattr(self, "local_server"):
+            self.local_server.close()
+            self.local_server.removeServer(LOCAL_SERVER_NAME)
         QApplication.quit()
 
 if __name__ == "__main__":
@@ -1051,6 +1445,15 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)  # Keep running in pill / tray
+
+    # Single-instance guard: check if Prodigit is already running
+    socket = QLocalSocket()
+    socket.connectToServer(LOCAL_SERVER_NAME)
+    if socket.waitForConnected(400):
+        # Already running: signal existing instance to show its window and exit cleanly
+        socket.write(b"show\n")
+        socket.waitForBytesWritten(400)
+        sys.exit(0)
 
     icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prodigit.ico")
     if os.path.exists(icon_path):
