@@ -11,6 +11,10 @@ Whenever the user requests UI/UX designs, Figma mockups, layout concepts, or vis
 3. **Simulated Browser & Device Frame**:
    - Embed the prototype directly inside a simulated browser/device frame (with macOS window controls, URL bar, and active resolution label) that smoothly resizes according to the active viewport.
 4. **Always Export to Downloads Folder**: Whenever you generate HTML UI designs, artifacts, or prototypes for the user, you must automatically move or copy the resulting `.html` files to the user's local Downloads folder (`C:\Users\Zaid alam\Downloads`). Do this seamlessly using a shell command.
+5. **Persistent Left Notes & Feedback Drawer Pane**:
+   - Always include an easily accessible toggle button (e.g., in the header navigation or pinned to the left edge) that opens a dedicated side pane on the left side of the screen.
+   - The pane must provide a clean scratchpad/textarea where the user can freely write down their thoughts, critique, notes, or design requirements.
+   - **Non-Dismissive / Pinned Behavior**: Interacting with, clicking, or scrolling through any other element on the page (switching concept tabs, changing viewports, testing interactive buttons, etc.) must **never** auto-close this pane. It must stay persistently open until the user explicitly clicks its toggle or close button, allowing them to test the prototype and record feedback concurrently without disruption.
 
 ---
 

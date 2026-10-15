@@ -1,14 +1,15 @@
 import sys
 import os
 import time
+import math
 from datetime import datetime, date, timedelta
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFrame, QScrollArea, QGraphicsDropShadowEffect,
     QCalendarWidget, QDialog, QMessageBox, QMenu, QSystemTrayIcon
 )
-from PyQt6.QtCore import Qt, QTimer, QPoint, QDate, QEvent
-from PyQt6.QtGui import QColor, QFont, QCursor, QIcon, QAction, QPixmap, QPainter
+from PyQt6.QtCore import Qt, QTimer, QPoint, QDate, QEvent, QPropertyAnimation, QEasingCurve, pyqtProperty, QPointF
+from PyQt6.QtGui import QColor, QFont, QCursor, QIcon, QAction, QPixmap, QPainter, QBrush
 
 import database
 import styles
@@ -80,6 +81,85 @@ class CalendarDialog(QDialog):
         qdate = self.calendar.selectedDate()
         return date(qdate.year(), qdate.month(), qdate.day())
 
+class PulsingDot(QWidget):
+    """
+    Animated fading dot that breathes and ripples with expanding wave,
+    matching Tailwind's animate-pulse and animate-ping from the design prototypes.
+    """
+    def __init__(self, size=9, active_color="#34D399", idle_color="#94A3B8", with_ping=True, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.size_val = size
+        self.with_ping = with_ping
+        padding = 10 if with_ping else 4
+        self.setFixedSize(size + padding, size + padding)
+        self.active_color = QColor(active_color)
+        self.idle_color = QColor(idle_color)
+        self.is_active = False
+        self._phase = 0.0
+
+        self.anim = QPropertyAnimation(self, b"phase_val", self)
+        self.anim.setDuration(1600)  # 1.6s smooth breathing period
+        self.anim.setStartValue(0.0)
+        self.anim.setEndValue(1.0)
+        self.anim.setLoopCount(-1)
+        self.anim.setEasingCurve(QEasingCurve.Type.Linear)
+
+    @pyqtProperty(float)
+    def phase_val(self):
+        return self._phase
+
+    @phase_val.setter
+    def phase_val(self, val):
+        self._phase = val
+        self.update()
+
+    def set_active(self, active):
+        if self.is_active == active and (not active or self.anim.state() == QPropertyAnimation.State.Running):
+            return
+        self.is_active = active
+        if active:
+            if self.anim.state() != QPropertyAnimation.State.Running:
+                self.anim.start()
+        else:
+            self.anim.stop()
+            self._phase = 0.0
+        self.update()
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        cx = self.width() / 2.0
+        cy = self.height() / 2.0
+        base_r = self.size_val / 2.0
+
+        if not self.is_active:
+            p.setBrush(QBrush(self.idle_color))
+            p.setPen(Qt.PenStyle.NoPen)
+            p.drawEllipse(QPointF(cx, cy), base_r, base_r)
+            return
+
+        # Breathing pulse: sine wave oscillating opacity between 0.35 and 1.0
+        pulse_alpha = 0.675 + 0.325 * math.sin(self._phase * 2.0 * math.pi)
+
+        # Expanding ping ripple wave
+        if self.with_ping:
+            ping_progress = self._phase
+            ping_r = base_r + (base_r * 0.95 * ping_progress)
+            ping_alpha = max(0.0, (1.0 - ping_progress) * 0.55)
+            ping_c = QColor(self.active_color)
+            ping_c.setAlphaF(ping_alpha)
+            p.setBrush(QBrush(ping_c))
+            p.setPen(Qt.PenStyle.NoPen)
+            p.drawEllipse(QPointF(cx, cy), ping_r, ping_r)
+
+        # Core pulsing dot
+        c = QColor(self.active_color)
+        c.setAlphaF(pulse_alpha)
+        p.setBrush(QBrush(c))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.drawEllipse(QPointF(cx, cy), base_r, base_r)
+
 class SmallPillWidget(QWidget):
     """
     Compact floating pill widget anchored at the bottom-center of the screen.
@@ -111,30 +191,30 @@ class SmallPillWidget(QWidget):
     def init_ui(self):
         self.setObjectName("pillRoot")
         outer_layout = QVBoxLayout(self)
-        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setContentsMargins(8, 6, 8, 8)
 
         self.frame = QFrame()
         self.frame.setObjectName("pillFrame")
+        self.frame.setFixedHeight(40)
         self.frame.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
         shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(18)
-        shadow.setColor(QColor(0, 0, 0, 180))
-        shadow.setOffset(0, 4)
+        shadow.setBlurRadius(14)
+        shadow.setColor(QColor(0, 0, 0, 160))
+        shadow.setOffset(0, 2)
         self.frame.setGraphicsEffect(shadow)
 
         layout = QHBoxLayout(self.frame)
-        layout.setContentsMargins(14, 6, 14, 6)
+        layout.setContentsMargins(10, 4, 10, 4)
         layout.setSpacing(10)
 
-        # White/Green Status Dot
-        self.dot_lbl = QLabel("●")
-        self.dot_lbl.setObjectName("pillDot")
-        self.dot_lbl.setStyleSheet("color: #FFFFFF; font-size: 11px;")
+        # Animated Fading Status Dot
+        self.dot = PulsingDot(size=9, active_color="#34D399", idle_color="#94A3B8", with_ping=True)
 
         # Time / Status Text
         self.time_lbl = QLabel("Today: 0.00h")
         self.time_lbl.setObjectName("pillText")
+        self.time_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Circular Action Button
         self.quick_btn = QPushButton("▶")
@@ -147,39 +227,41 @@ class SmallPillWidget(QWidget):
         # Expand icon
         self.expand_btn = QPushButton("⛶")
         self.expand_btn.setObjectName("pillExpandBtn")
+        self.expand_btn.setFixedSize(20, 20)
         self.expand_btn.setToolTip("Open Full Dashboard")
-        self.expand_btn.clicked.connect(self.controller.toggle_dashboard)
+        self.expand_btn.clicked.connect(self.on_expand_clicked)
 
-        layout.addWidget(self.dot_lbl)
+        # Keep items centered inside constant-width pill without abnormal gaps
+        layout.addStretch(1)
+        layout.addWidget(self.dot)
         layout.addWidget(self.time_lbl)
         layout.addWidget(self.quick_btn)
         layout.addWidget(self.expand_btn)
+        layout.addStretch(1)
 
         outer_layout.addWidget(self.frame)
 
     def position_bottom_center(self):
+        self.has_been_dragged = False
         screen = QApplication.primaryScreen().availableGeometry()
-        pill_w = 230
-        pill_h = 48
+        pill_w = 246
+        pill_h = 56
         x = screen.x() + (screen.width() - pill_w) // 2
         y = screen.y() + screen.height() - pill_h - 75
         self.setGeometry(x, y, pill_w, pill_h)
 
     def update_state(self, is_active, elapsed_str="", today_total_str=""):
+        self.dot.set_active(is_active)
         if is_active:
-            self.dot_lbl.setStyleSheet("color: #10B981; font-size: 11px;")
             self.time_lbl.setText(elapsed_str)
-            self.time_lbl.setStyleSheet("color: #10B981; font-weight: 800; font-family: 'Consolas', monospace;")
+            self.time_lbl.setStyleSheet("color: #FFFFFF; font-weight: 700; font-family: 'Fira Code', 'Consolas', monospace;")
             self.quick_btn.setText("■")
-            self.quick_btn.setStyleSheet("background-color: #FFFFFF; color: #000000; border: none; border-radius: 12px; font-weight: 900;")
             self.quick_btn.setToolTip("Stop Session")
         else:
-            self.dot_lbl.setStyleSheet("color: #FFFFFF; font-size: 11px;")
             disp = f"Today: {today_total_str}" if today_total_str else "Today: 0.00h"
             self.time_lbl.setText(disp)
-            self.time_lbl.setStyleSheet("color: #F8FAFC; font-weight: 700; font-family: 'Consolas', 'Segoe UI', monospace;")
+            self.time_lbl.setStyleSheet("color: #FFFFFF; font-weight: 700; font-family: 'Fira Code', 'Consolas', monospace;")
             self.quick_btn.setText("▶")
-            self.quick_btn.setStyleSheet("background-color: #FFFFFF; color: #000000; border: none; border-radius: 12px; font-weight: 900;")
             self.quick_btn.setToolTip("Start Session")
 
     # Click anywhere on pill (except buttons) to toggle dashboard
@@ -198,18 +280,28 @@ class SmallPillWidget(QWidget):
                 # If moved more than 5 pixels, it's a drag, not a click
                 if (current_pos - self.drag_start_pos).manhattanLength() > 5:
                     self.is_dragging = True
+                    self.has_been_dragged = True
             
             if self.is_dragging:
                 delta = current_pos - self.old_pos
                 self.move(self.x() + delta.x(), self.y() + delta.y())
             self.old_pos = current_pos
 
+    def on_expand_clicked(self):
+        if not self.controller.dashboard.isVisible():
+            self.controller.open_dashboard()
+        else:
+            self.controller.dashboard.raise_()
+            self.controller.dashboard.activateWindow()
+
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             if not self.is_dragging:
-                # Avoid re-opening if dashboard just closed due to losing focus onto pill
-                if time.time() - getattr(self.controller, "last_dashboard_close_time", 0) > 0.25:
-                    self.controller.toggle_dashboard()
+                if not self.controller.dashboard.isVisible():
+                    self.controller.open_dashboard()
+                else:
+                    self.controller.dashboard.raise_()
+                    self.controller.dashboard.activateWindow()
             self.is_dragging = False
             self.drag_start_pos = None
             self.old_pos = None
@@ -296,12 +388,14 @@ class ProductivityWidget(QWidget):
         self.container.setGraphicsEffect(shadow)
 
         layout = QVBoxLayout(self.container)
-        layout.setContentsMargins(14, 12, 14, 14)
-        layout.setSpacing(10)
+        layout.setContentsMargins(16, 14, 16, 16)
+        layout.setSpacing(12)
 
         # 1. Header Bar
-        header = QHBoxLayout()
-        header.setContentsMargins(0, 0, 0, 0)
+        header_frame = QFrame()
+        header_frame.setObjectName("headerBarContainer")
+        header = QHBoxLayout(header_frame)
+        header.setContentsMargins(0, 0, 0, 8)
         
         title_box = QHBoxLayout()
         title_box.setSpacing(8)
@@ -314,11 +408,6 @@ class ProductivityWidget(QWidget):
         
         title_box.addWidget(app_title)
         title_box.addWidget(self.status_badge)
-
-        self.cal_btn = QPushButton("📅")
-        self.cal_btn.setObjectName("headerIconBtn")
-        self.cal_btn.setToolTip("Pick Date from Calendar")
-        self.cal_btn.clicked.connect(self.open_calendar_picker)
 
         self.pin_btn = QPushButton("📌")
         self.pin_btn.setObjectName("headerIconBtn")
@@ -337,18 +426,17 @@ class ProductivityWidget(QWidget):
 
         header.addLayout(title_box)
         header.addStretch()
-        header.addWidget(self.cal_btn)
         header.addWidget(self.pin_btn)
         header.addWidget(collapse_btn)
         header.addWidget(close_btn)
-        layout.addLayout(header)
+        layout.addWidget(header_frame)
 
         # 2. Timer Control Card
         timer_card = QFrame()
         timer_card.setObjectName("timerCard")
         timer_card_layout = QVBoxLayout(timer_card)
         timer_card_layout.setContentsMargins(14, 12, 14, 14)
-        timer_card_layout.setSpacing(4)
+        timer_card_layout.setSpacing(3)
 
         timer_top = QLabel("Active Focus Session")
         timer_top.setObjectName("timerTopLabel")
@@ -470,7 +558,7 @@ class ProductivityWidget(QWidget):
         self.scroll_content = QWidget()
         self.session_list_layout = QVBoxLayout(self.scroll_content)
         self.session_list_layout.setContentsMargins(0, 0, 4, 0)
-        self.session_list_layout.setSpacing(6)
+        self.session_list_layout.setSpacing(3)
         self.session_list_layout.addStretch()
         self.scroll_area.setWidget(self.scroll_content)
         layout.addWidget(self.scroll_area, 1)
@@ -515,6 +603,15 @@ class ProductivityWidget(QWidget):
             if not self.isActiveWindow():
                 # Close widget when clicking outside, unless pinned or opening calendar
                 if not getattr(self, "modal_open", False) and not self.is_pinned:
+                    # Do NOT close if user clicked on or is interacting with the widget pill
+                    pill = getattr(self.controller, "pill", None)
+                    if pill is not None:
+                        cursor_pos = QCursor.pos()
+                        clicked_widget = QApplication.widgetAt(cursor_pos)
+                        if (pill.frameGeometry().adjusted(-10, -10, 10, 10).contains(cursor_pos) or 
+                            QApplication.activeWindow() == pill or 
+                            (clicked_widget is not None and (clicked_widget == pill or pill.isAncestorOf(clicked_widget)))):
+                            return
                     self.controller.last_dashboard_close_time = time.time()
                     self.hide()
 
@@ -648,23 +745,33 @@ class ProductivityWidget(QWidget):
             #sessionItem {
                 background-color: rgba(16, 185, 129, 0.1);
                 border: 1px solid rgba(16, 185, 129, 0.4);
-                border-radius: 8px;
+                border-radius: 0px;
             }
         """)
         card_layout = QHBoxLayout(card)
-        card_layout.setContentsMargins(12, 10, 12, 10)
+        card_layout.setContentsMargins(10, 4, 10, 4)
 
         info_col = QVBoxLayout()
-        info_col.setSpacing(2)
+        info_col.setSpacing(1)
+
+        time_row = QHBoxLayout()
+        time_row.setSpacing(6)
+        time_row.setContentsMargins(0, 0, 0, 0)
+
+        card_dot = PulsingDot(size=7, active_color="#34D399", with_ping=True)
+        card_dot.set_active(True)
+        time_row.addWidget(card_dot)
 
         start_disp = start_dt.strftime("%I:%M %p")
-        time_lbl = QLabel(f"●  {start_disp} ➔ Ongoing")
+        time_lbl = QLabel(f"{start_disp} ➔ Ongoing")
         time_lbl.setStyleSheet("color: #34D399; font-weight: 700; font-size: 12px;")
+        time_row.addWidget(time_lbl)
+        time_row.addStretch()
 
         sub_lbl = QLabel("Active Right Now")
-        sub_lbl.setStyleSheet("color: #6EE7B7; font-size: 10px;")
+        sub_lbl.setStyleSheet("color: rgba(110, 231, 183, 0.8); font-size: 10px;")
 
-        info_col.addWidget(time_lbl)
+        info_col.addLayout(time_row)
         info_col.addWidget(sub_lbl)
         card_layout.addLayout(info_col, 1)
 
@@ -675,7 +782,7 @@ class ProductivityWidget(QWidget):
 
         self.active_card_dur_lbl = QLabel(time_str)
         self.active_card_dur_lbl.setObjectName("sessionDurationGreen")
-        self.active_card_dur_lbl.setStyleSheet("color: #34D399; font-weight: 800; font-size: 13px; font-family: 'Consolas', monospace;")
+        self.active_card_dur_lbl.setStyleSheet("color: #34D399; font-weight: 700; font-size: 12px; font-family: 'Fira Code', 'Consolas', monospace;")
         card_layout.addWidget(self.active_card_dur_lbl)
 
         card.installEventFilter(self)
@@ -685,16 +792,16 @@ class ProductivityWidget(QWidget):
         card = QFrame()
         card.setObjectName("sessionItem")
         card_layout = QHBoxLayout(card)
-        card_layout.setContentsMargins(12, 10, 12, 10)
+        card_layout.setContentsMargins(10, 4, 10, 4)
 
         info_col = QVBoxLayout()
-        info_col.setSpacing(2)
+        info_col.setSpacing(1)
 
         start_t = session_data.get("start_time_display") or ""
         end_t = session_data.get("end_time_display") or "Ongoing"
         time_lbl = QLabel(f"{start_t} ➔ {end_t}")
         time_lbl.setObjectName("sessionTime")
-        time_lbl.setStyleSheet("color: #F8FAFC; font-weight: 600; font-size: 12px;")
+        time_lbl.setStyleSheet("color: #E2E8F0; font-weight: 600; font-size: 12px;")
 
         sub_lbl = QLabel("Focus Session · Completed")
         sub_lbl.setObjectName("sessionSubtext")
@@ -707,7 +814,7 @@ class ProductivityWidget(QWidget):
         dur_sec = session_data.get("duration_seconds", 0)
         dur_lbl = QLabel(database.format_duration(dur_sec))
         dur_lbl.setObjectName("sessionDurationGreen")
-        dur_lbl.setStyleSheet("color: #34D399; font-weight: 700; font-size: 12px; font-family: 'Consolas', monospace;")
+        dur_lbl.setStyleSheet("color: #34D399; font-weight: 600; font-size: 12px; font-family: 'Fira Code', 'Consolas', monospace;")
         card_layout.addWidget(dur_lbl)
 
         del_btn = QPushButton("🗑")
@@ -843,11 +950,13 @@ class AppController:
             self.session_start_dt = datetime.fromisoformat(active["start_timestamp"])
             self.dashboard.status_badge.setText("● PRODUCTIVE")
             self.dashboard.status_badge.setObjectName("statusBadgeActive")
-            self.dashboard.status_badge.setStyle(self.dashboard.style())
+            self.dashboard.status_badge.style().unpolish(self.dashboard.status_badge)
+            self.dashboard.status_badge.style().polish(self.dashboard.status_badge)
             self.dashboard.start_time_label.setText(f"Since {active['start_time_display']} · Real-time sync")
             self.dashboard.toggle_btn.setText("■  STOP SESSION")
             self.dashboard.toggle_btn.setObjectName("stopBtn")
-            self.dashboard.toggle_btn.setStyle(self.dashboard.style())
+            self.dashboard.toggle_btn.style().unpolish(self.dashboard.toggle_btn)
+            self.dashboard.toggle_btn.style().polish(self.dashboard.toggle_btn)
             self.tray_start_stop_action.setText("Stop Session")
             self.timer.start()
             self.tick()
@@ -861,11 +970,13 @@ class AppController:
             
             self.dashboard.status_badge.setText("● PRODUCTIVE")
             self.dashboard.status_badge.setObjectName("statusBadgeActive")
-            self.dashboard.status_badge.setStyle(self.dashboard.style())
+            self.dashboard.status_badge.style().unpolish(self.dashboard.status_badge)
+            self.dashboard.status_badge.style().polish(self.dashboard.status_badge)
             self.dashboard.start_time_label.setText(f"Since {now_dt.strftime('%I:%M:%S %p')} · Real-time sync")
             self.dashboard.toggle_btn.setText("■  STOP SESSION")
             self.dashboard.toggle_btn.setObjectName("stopBtn")
-            self.dashboard.toggle_btn.setStyle(self.dashboard.style())
+            self.dashboard.toggle_btn.style().unpolish(self.dashboard.toggle_btn)
+            self.dashboard.toggle_btn.style().polish(self.dashboard.toggle_btn)
             
             self.tray_start_stop_action.setText("Stop Session")
             self.refresh_all()
@@ -880,13 +991,15 @@ class AppController:
             
             self.dashboard.status_badge.setText("IDLE")
             self.dashboard.status_badge.setObjectName("statusBadgeIdle")
-            self.dashboard.status_badge.setStyle(self.dashboard.style())
+            self.dashboard.status_badge.style().unpolish(self.dashboard.status_badge)
+            self.dashboard.status_badge.style().polish(self.dashboard.status_badge)
             
             self.dashboard.start_time_label.setText("Ready to track focus")
             self.dashboard.timer_label.setText("00:00:00")
             self.dashboard.toggle_btn.setText("▶  START PRODUCTIVITY")
             self.dashboard.toggle_btn.setObjectName("startBtn")
-            self.dashboard.toggle_btn.setStyle(self.dashboard.style())
+            self.dashboard.toggle_btn.style().unpolish(self.dashboard.toggle_btn)
+            self.dashboard.toggle_btn.style().polish(self.dashboard.toggle_btn)
             
             self.tray_start_stop_action.setText("Start Session")
             self.refresh_all()
@@ -943,7 +1056,8 @@ if __name__ == "__main__":
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
     
-    font = QFont("Segoe UI", 10)
+    font = QFont("Plus Jakarta Sans", 9)
+    font.setStyleHint(QFont.StyleHint.SansSerif)
     app.setFont(font)
 
     controller = AppController()
