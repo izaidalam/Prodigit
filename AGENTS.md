@@ -15,6 +15,13 @@ Whenever the user requests UI/UX designs, Figma mockups, layout concepts, or vis
    - Always include an easily accessible toggle button (e.g., in the header navigation or pinned to the left edge) that opens a dedicated side pane on the left side of the screen.
    - The pane must provide a clean scratchpad/textarea where the user can freely write down their thoughts, critique, notes, or design requirements.
    - **Non-Dismissive / Pinned Behavior**: Interacting with, clicking, or scrolling through any other element on the page (switching concept tabs, changing viewports, testing interactive buttons, etc.) must **never** auto-close this pane. It must stay persistently open until the user explicitly clicks its toggle or close button, allowing them to test the prototype and record feedback concurrently without disruption.
+6. **Keyboard Arrow Navigation for Designs (Left & Right Keys)**:
+   - Allow switching between design concepts sequentially using the keyboard Left (`ArrowLeft`) and Right (`ArrowRight`) arrow keys.
+   - **No On-Screen Navigation Arrows**: Do not place visible left/right arrow buttons on the screen; navigation must occur strictly via physical keyboard input.
+   - **Typing Safety**: When the user is actively typing in the feedback textarea, search inputs, or other form controls, keyboard arrow navigation must automatically yield so text editing is uninterrupted.
+7. **Strict No-Eyebrow Policy (Clean & Uncluttered UI)**:
+   - Never use eyebrow headers, kickers, super-titles, or decorative uppercase label pills above section titles and hero headings anywhere in the layout.
+   - Keep the design clean and modern by leading straight into primary headings without auxiliary overline labels or visual noise.
 
 ---
 

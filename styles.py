@@ -22,6 +22,12 @@ QWidget {
     border-radius: 0px;
 }
 
+#appTitleIcon {
+    font-family: 'Segoe UI Symbol', sans-serif;
+    font-size: 14px;
+    color: #FFFFFF;
+}
+
 #appTitle {
     font-size: 12px;
     font-weight: 700;
@@ -318,5 +324,153 @@ QWidget#pillRoot {
 
 #pillExpandBtn:hover {
     color: #FFFFFF;
+}
+
+/* ================= SHORTCUT ASSIGNMENT DIALOG (SWISS TYPO GRID) ================= */
+#shortcutDialog {
+    background-color: #000000;
+    border: 1.5px solid rgba(255, 255, 255, 0.22);
+    border-radius: 0px;
+}
+
+#shortcutHeaderFrame {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    background-color: #000000;
+}
+
+#shortcutDialogTitle {
+    font-size: 11px;
+    font-weight: 800;
+    color: #FFFFFF;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-family: 'Fira Code', 'Consolas', monospace;
+}
+
+#shortcutHeroTitle {
+    font-size: 15px;
+    font-weight: 800;
+    color: #FFFFFF;
+    letter-spacing: -0.01em;
+}
+
+#shortcutKeyBox {
+    background-color: #050505;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 0px;
+}
+
+#shortcutKeyBox:hover {
+    border: 1px solid #FFFFFF;
+}
+
+#shortcutKeyEdit, #shortcutKeyEdit QLineEdit {
+    background-color: transparent;
+    color: #FFFFFF;
+    border: none;
+    font-size: 15px;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-weight: 800;
+    padding: 2px;
+}
+
+#shortcutKeyHint {
+    font-size: 10px;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    color: #94A3B8;
+}
+
+#presetGridBtn {
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0px;
+    padding: 0px;
+    min-height: 32px;
+}
+
+#presetGridBtn:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    border: 1px solid #FFFFFF;
+}
+
+#presetKeyText {
+    color: #E2E8F0;
+    font-size: 11px;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-weight: 600;
+}
+
+#presetTagText {
+    color: #64748B;
+    font-size: 9px;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-weight: 700;
+}
+
+#presetGridBtn:hover #presetKeyText {
+    color: #FFFFFF;
+}
+
+#presetGridBtn:hover #presetTagText {
+    color: #94A3B8;
+}
+
+#shortcutActionsFrame {
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    background-color: #000000;
+}
+
+#saveShortcutBtn {
+    background-color: #FFFFFF;
+    color: #000000;
+    border: none;
+    border-radius: 0px;
+    padding: 8px 18px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-family: 'Fira Code', 'Consolas', monospace;
+}
+
+#saveShortcutBtn:hover {
+    background-color: #D4D4D8;
+}
+
+#cancelShortcutBtn {
+    background-color: transparent;
+    color: #CBD5E1;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 0px;
+    padding: 7px 16px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: 'Fira Code', 'Consolas', monospace;
+}
+
+#cancelShortcutBtn:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #FFFFFF;
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+#resetShortcutBtn {
+    background-color: transparent;
+    color: #94A3B8;
+    border: none;
+    font-size: 11px;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    padding: 4px 0px;
+}
+
+#resetShortcutBtn:hover {
+    color: #FFFFFF;
+    text-decoration: underline;
+}
+
+#shortcutStatusLbl {
+    font-size: 11px;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    color: #FB7185;
 }
 """
