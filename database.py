@@ -104,9 +104,9 @@ def get_sessions_by_date(target_date_str):
     cursor = conn.cursor()
     cursor.execute("""
         SELECT * FROM sessions 
-        WHERE date = ? AND status = 'completed'
+        WHERE (date = ? OR substr(end_timestamp, 1, 10) = ?) AND status = 'completed'
         ORDER BY id DESC
-    """, (target_date_str,))
+    """, (target_date_str, target_date_str))
     rows = [dict(r) for r in cursor.fetchall()]
     
     total_sec = sum(r["duration_seconds"] for r in rows)
@@ -127,9 +127,10 @@ def get_sessions_by_date_range(start_date_str, end_date_str):
     cursor = conn.cursor()
     cursor.execute("""
         SELECT * FROM sessions 
-        WHERE date >= ? AND date <= ? AND status = 'completed'
+        WHERE ((date >= ? AND date <= ?) OR (substr(end_timestamp, 1, 10) >= ? AND substr(end_timestamp, 1, 10) <= ?))
+          AND status = 'completed'
         ORDER BY date DESC, id DESC
-    """, (start_date_str, end_date_str))
+    """, (start_date_str, end_date_str, start_date_str, end_date_str))
     rows = [dict(r) for r in cursor.fetchall()]
     
     total_sec = sum(r["duration_seconds"] for r in rows)
@@ -164,6 +165,23 @@ def format_duration(seconds):
         return f"{mins}m {secs:02d}s"
     else:
         return f"{secs}s"
+
+def format_focus_duration(seconds):
+    """Formats seconds into human-readable 'hr min sec' format, e.g. '30 min', '2 hr 30 min'."""
+    if not seconds or seconds <= 0:
+        return "0 min"
+    hrs = seconds // 3600
+    rem = seconds % 3600
+    mins = rem // 60
+    secs = rem % 60
+    parts = []
+    if hrs > 0:
+        parts.append(f"{hrs} hr")
+    if mins > 0:
+        parts.append(f"{mins} min")
+    if secs > 0:
+        parts.append(f"{secs} sec")
+    return " ".join(parts) if parts else "0 min"
 
 def get_setting(key, default=None):
     """Retrieves a persistent setting value by key."""
