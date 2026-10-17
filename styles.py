@@ -139,17 +139,10 @@ QWidget {
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-#summaryNumberBlue {
+#summaryNumberBlue, #summaryNumberWhite {
     font-size: 16px;
     font-weight: 700;
-    color: #60A5FA;
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-}
-
-#summaryNumberWhite {
-    font-size: 16px;
-    font-weight: 700;
-    color: #E2E8F0;
+    color: #FFFFFF;
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 }
 
@@ -161,12 +154,12 @@ QWidget {
     text-transform: uppercase;
 }
 
-/* Filter Navigation Bar (Edgy) */
+/* Filter Navigation Bar (Edgy Underline Tabs) */
 #filterBarContainer {
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: transparent;
     border-radius: 0px;
     border: none;
-    padding: 4px;
+    padding: 0px;
 }
 
 #filterTab {
@@ -174,9 +167,10 @@ QWidget {
     color: #94A3B8;
     border: none;
     border-radius: 0px;
-    padding: 4px 8px;
+    padding: 6px 8px;
     font-size: 11px;
     font-weight: 500;
+    outline: none;
 }
 
 #filterTab:hover {
@@ -184,13 +178,20 @@ QWidget {
 }
 
 #filterTabSelected {
-    background-color: #2563EB;
+    background-color: transparent;
     color: #FFFFFF;
     border: none;
     border-radius: 0px;
-    padding: 4px 8px;
+    padding: 6px 8px;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
+    outline: none;
+}
+
+#tabIndicator {
+    background-color: #FFFFFF;
+    border: none;
+    border-radius: 1px;
 }
 
 /* Sessions Scroll Area (Edgy) */
@@ -217,10 +218,10 @@ QScrollArea {
     color: #E2E8F0;
 }
 
-#sessionDurationGreen {
+#sessionDurationGreen, #sessionDurationWhite {
     font-size: 12px;
     font-weight: 600;
-    color: #34D399;
+    color: #E2E8F0;
     font-family: 'Fira Code', 'Consolas', monospace;
 }
 
@@ -231,15 +232,13 @@ QScrollArea {
 
 #deleteItemBtn {
     background-color: transparent;
-    color: #64748B;
     border: none;
-    font-size: 12px;
-    padding: 2px 4px;
-    border-radius: 0px;
+    padding: 0px;
+    border-radius: 4px;
 }
 
 #deleteItemBtn:hover {
-    color: #FB7185;
+    background-color: rgba(251, 113, 133, 0.12);
 }
 
 /* Custom Scrollbar */

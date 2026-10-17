@@ -11,8 +11,12 @@ from PyQt6.QtWidgets import (
     QCalendarWidget, QDialog, QMessageBox, QMenu, QSystemTrayIcon,
     QKeySequenceEdit, QGridLayout, QLineEdit
 )
-from PyQt6.QtCore import Qt, QTimer, QPoint, QDate, QEvent, QPropertyAnimation, QEasingCurve, pyqtProperty, QPointF, pyqtSignal
+from PyQt6.QtCore import (
+    Qt, QTimer, QPoint, QDate, QEvent, QPropertyAnimation, QEasingCurve,
+    pyqtProperty, QPointF, pyqtSignal, QByteArray, QSize, QRect, QParallelAnimationGroup
+)
 from PyQt6.QtGui import QColor, QFont, QCursor, QIcon, QAction, QPixmap, QPainter, QBrush, QKeySequence
+from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 
 LOCAL_SERVER_NAME = "prodigit_single_instance_ipc"
@@ -43,6 +47,45 @@ def create_tray_icon_pixmap(is_active=False):
         painter.drawEllipse(13, 13, 6, 6)
     painter.end()
     return pixmap
+
+def create_trash_pixmap(color="#64748B", size=16):
+    """Draws a minimalist outline trash bin icon matching the Swiss aesthetic and clock icon."""
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 6h18"/>
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+    <line x1="10" y1="11" x2="10" y2="17"/>
+    <line x1="14" y1="11" x2="14" y2="17"/>
+</svg>"""
+    renderer = QSvgRenderer(QByteArray(svg.encode("utf-8")))
+    pixmap = QPixmap(size, size)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    renderer.render(painter)
+    painter.end()
+    return pixmap
+
+class TrashButton(QPushButton):
+    """Minimalist outline trash bin button matching the top-left clock icon."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("deleteItemBtn")
+        self.setFixedSize(24, 24)
+        self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.setToolTip("Delete this session record")
+        self.normal_pixmap = create_trash_pixmap("#64748B", 14)
+        self.hover_pixmap = create_trash_pixmap("#FB7185", 14)
+        self.setIcon(QIcon(self.normal_pixmap))
+        self.setIconSize(QSize(14, 14))
+
+    def enterEvent(self, event):
+        super().enterEvent(event)
+        self.setIcon(QIcon(self.hover_pixmap))
+
+    def leaveEvent(self, event):
+        super().leaveEvent(event)
+        self.setIcon(QIcon(self.normal_pixmap))
+
 
 class CalendarDialog(QDialog):
     """Simple date picker dialog styled in Swiss Monochrome."""
@@ -395,7 +438,7 @@ class PulsingDot(QWidget):
     Animated fading dot that breathes and ripples with expanding wave,
     matching Tailwind's animate-pulse and animate-ping from the design prototypes.
     """
-    def __init__(self, size=9, active_color="#34D399", idle_color="#94A3B8", with_ping=True, parent=None):
+    def __init__(self, size=9, active_color="#FFFFFF", idle_color="#94A3B8", with_ping=True, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.size_val = size
@@ -518,10 +561,10 @@ class SmallPillWidget(QWidget):
         layout.setSpacing(10)
 
         # Animated Fading Status Dot
-        self.dot = PulsingDot(size=9, active_color="#34D399", idle_color="#94A3B8", with_ping=True)
+        self.dot = PulsingDot(size=9, active_color="#FFFFFF", idle_color="#94A3B8", with_ping=True)
 
         # Time / Status Text
-        self.time_lbl = QLabel("Today: 0.00h")
+        self.time_lbl = QLabel("Today: 0 min")
         self.time_lbl.setObjectName("pillText")
         self.time_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -567,7 +610,7 @@ class SmallPillWidget(QWidget):
             self.quick_btn.setText("■")
             self.quick_btn.setToolTip("Stop Session")
         else:
-            disp = f"Today: {today_total_str}" if today_total_str else "Today: 0.00h"
+            disp = f"Today: {today_total_str}" if today_total_str else "Today: 0 min"
             self.time_lbl.setText(disp)
             self.time_lbl.setStyleSheet("color: #FFFFFF; font-weight: 700; font-family: 'Fira Code', 'Consolas', monospace;")
             self.quick_btn.setText("▶")
@@ -597,20 +640,12 @@ class SmallPillWidget(QWidget):
             self.old_pos = current_pos
 
     def on_expand_clicked(self):
-        if not self.controller.dashboard.isVisible():
-            self.controller.open_dashboard()
-        else:
-            self.controller.dashboard.raise_()
-            self.controller.dashboard.activateWindow()
+        self.controller.toggle_dashboard()
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             if not self.is_dragging:
-                if not self.controller.dashboard.isVisible():
-                    self.controller.open_dashboard()
-                else:
-                    self.controller.dashboard.raise_()
-                    self.controller.dashboard.activateWindow()
+                self.controller.toggle_dashboard()
             self.is_dragging = False
             self.drag_start_pos = None
             self.old_pos = None
@@ -674,7 +709,7 @@ class ProductivityWidget(QWidget):
         # Window settings
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint | 
-            Qt.WindowType.SubWindow
+            Qt.WindowType.Tool
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setMinimumWidth(330)
@@ -682,9 +717,22 @@ class ProductivityWidget(QWidget):
         self.setMinimumHeight(480)
         self.resize(340, 520)
 
+        self._just_opened = False
+        self._is_animating_open = False
+        self._is_animating_close = False
+        self._open_anim_group = None
+        self._close_anim_group = None
         self.setStyleSheet(styles.DARK_THEME)
         self.init_ui()
         self.position_above_pill()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        QTimer.singleShot(10, lambda: self.update_tab_indicator(animate=False))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        QTimer.singleShot(10, lambda: self.update_tab_indicator(animate=False))
 
     def init_ui(self):
         outer_layout = QVBoxLayout(self)
@@ -738,7 +786,7 @@ class ProductivityWidget(QWidget):
         close_btn = QPushButton("✕")
         close_btn.setObjectName("headerCloseBtn")
         close_btn.setToolTip("Close to Bottom Widget")
-        close_btn.clicked.connect(self.hide)
+        close_btn.clicked.connect(self.animate_hide)
 
         header.addLayout(title_box)
         header.addStretch()
@@ -789,8 +837,8 @@ class ProductivityWidget(QWidget):
         total_col.setSpacing(2)
         today_sub = QLabel("TODAY'S FOCUS")
         today_sub.setObjectName("summaryLabel")
-        self.today_total_label = QLabel("0.00h")
-        self.today_total_label.setObjectName("summaryNumberBlue")
+        self.today_total_label = QLabel("0 min")
+        self.today_total_label.setObjectName("summaryNumberWhite")
         total_col.addWidget(today_sub)
         total_col.addWidget(self.today_total_label)
 
@@ -812,11 +860,11 @@ class ProductivityWidget(QWidget):
         layout.addWidget(stats_card)
 
         # 4. Period Filter Tabs in pill container
-        filter_box = QFrame()
-        filter_box.setObjectName("filterBarContainer")
-        filter_layout = QHBoxLayout(filter_box)
-        filter_layout.setContentsMargins(3, 3, 3, 3)
-        filter_layout.setSpacing(2)
+        self.filter_box = QFrame()
+        self.filter_box.setObjectName("filterBarContainer")
+        filter_layout = QHBoxLayout(self.filter_box)
+        filter_layout.setContentsMargins(0, 0, 0, 0)
+        filter_layout.setSpacing(4)
         
         self.tab_today = QPushButton("Today")
         self.tab_7d = QPushButton("7 Days")
@@ -832,11 +880,21 @@ class ProductivityWidget(QWidget):
 
         for mode, btn in self.filter_buttons.items():
             btn.setObjectName("filterTab")
+            btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             btn.clicked.connect(lambda checked, m=mode: self.set_filter_mode(m))
             filter_layout.addWidget(btn)
 
-        layout.addWidget(filter_box)
+        # Smooth sliding underline indicator
+        self.tab_indicator = QFrame(self.filter_box)
+        self.tab_indicator.setObjectName("tabIndicator")
+        self.tab_indicator.setFixedHeight(2)
+        self.tab_indicator.raise_()
+        self.tab_indicator_anim = QPropertyAnimation(self.tab_indicator, b"geometry", self)
+        self.tab_indicator_anim.setDuration(220)
+        self.tab_indicator_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        layout.addWidget(self.filter_box)
 
         # 5. Day Navigator (hidden to match Swiss Mono minimalist layout)
         self.nav_widget = QWidget()
@@ -889,52 +947,186 @@ class ProductivityWidget(QWidget):
         self.scroll_area.viewport().installEventFilter(self)
         self.scroll_content.installEventFilter(self)
 
-    def position_above_pill(self):
+    def calculate_geometry_above_pill(self):
         screen = QApplication.primaryScreen().availableGeometry()
         w = 340
         h = 520
-        x = screen.x() + (screen.width() - w) // 2
-        y = screen.y() + screen.height() - h - 68
+        pill = getattr(self.controller, "pill", None)
+        if pill is not None and pill.isVisible():
+            pill_geom = pill.frameGeometry()
+            x = pill_geom.center().x() - w // 2
+            y = pill_geom.top() - h - 10
+        else:
+            x = screen.x() + (screen.width() - w) // 2
+            y = screen.y() + screen.height() - h - 68
+
+        # Clamp within screen bounds
+        if x < screen.x() + 10:
+            x = screen.x() + 10
+        elif x + w > screen.x() + screen.width() - 10:
+            x = screen.x() + screen.width() - w - 10
+
         if y < screen.y() + 10:
             y = screen.y() + 10
-        self.setGeometry(x, y, w, h)
+        elif y + h > screen.y() + screen.height() - 10:
+            y = screen.y() + screen.height() - h - 10
+
+        return QRect(x, y, w, h)
+
+    def position_above_pill(self):
+        self.setGeometry(self.calculate_geometry_above_pill())
+
+    def animate_show(self):
+        if self._close_anim_group and self._close_anim_group.state() == QParallelAnimationGroup.State.Running:
+            self._close_anim_group.stop()
+
+        self._is_animating_close = False
+        self._is_animating_open = True
+        self._just_opened = True
+
+        final_geom = self.calculate_geometry_above_pill()
+        # Start 18px below final position, smoothly gliding up and fading in from the pill
+        start_geom = QRect(final_geom.x(), final_geom.y() + 18, final_geom.width(), final_geom.height())
+
+        self.setGeometry(start_geom)
+        self.setWindowOpacity(0.0)
+        self.show()
+        self.raise_()
+        self.activateWindow()
+
+        self._open_anim_group = QParallelAnimationGroup(self)
+
+        geom_anim = QPropertyAnimation(self, b"geometry", self._open_anim_group)
+        geom_anim.setDuration(230)
+        geom_anim.setStartValue(start_geom)
+        geom_anim.setEndValue(final_geom)
+        geom_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        opacity_anim = QPropertyAnimation(self, b"windowOpacity", self._open_anim_group)
+        opacity_anim.setDuration(230)
+        opacity_anim.setStartValue(0.0)
+        opacity_anim.setEndValue(1.0)
+        opacity_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        self._open_anim_group.addAnimation(geom_anim)
+        self._open_anim_group.addAnimation(opacity_anim)
+
+        def on_open_finished():
+            self._is_animating_open = False
+            self.setWindowOpacity(1.0)
+            self.setGeometry(final_geom)
+            self.update_tab_indicator(animate=False)
+            QTimer.singleShot(200, lambda: setattr(self, "_just_opened", False))
+
+        self._open_anim_group.finished.connect(on_open_finished)
+        self._open_anim_group.start()
+        QTimer.singleShot(15, lambda: self.update_tab_indicator(animate=False))
+
+    def animate_hide(self):
+        if not self.isVisible() or self._is_animating_close:
+            return
+
+        if self._open_anim_group and self._open_anim_group.state() == QParallelAnimationGroup.State.Running:
+            self._open_anim_group.stop()
+
+        self._is_animating_open = False
+        self._is_animating_close = True
+
+        curr_geom = self.geometry()
+        # Smoothly glide down 14px towards the pill while fading out
+        end_geom = QRect(curr_geom.x(), curr_geom.y() + 14, curr_geom.width(), curr_geom.height())
+
+        self._close_anim_group = QParallelAnimationGroup(self)
+
+        geom_anim = QPropertyAnimation(self, b"geometry", self._close_anim_group)
+        geom_anim.setDuration(160)
+        geom_anim.setStartValue(curr_geom)
+        geom_anim.setEndValue(end_geom)
+        geom_anim.setEasingCurve(QEasingCurve.Type.InCubic)
+
+        opacity_anim = QPropertyAnimation(self, b"windowOpacity", self._close_anim_group)
+        opacity_anim.setDuration(160)
+        opacity_anim.setStartValue(self.windowOpacity())
+        opacity_anim.setEndValue(0.0)
+        opacity_anim.setEasingCurve(QEasingCurve.Type.InCubic)
+
+        self._close_anim_group.addAnimation(geom_anim)
+        self._close_anim_group.addAnimation(opacity_anim)
+
+        def on_hide_finished():
+            self.hide()
+            self.setWindowOpacity(1.0)
+            self._is_animating_close = False
+            self.controller.last_dashboard_close_time = time.time()
+
+        self._close_anim_group.finished.connect(on_hide_finished)
+        self._close_anim_group.start()
+
+    def update_tab_indicator(self, animate=True):
+        if not hasattr(self, "tab_indicator") or not hasattr(self, "filter_box"):
+            return
+        target_btn = self.filter_buttons.get(self.current_filter_mode, self.tab_today)
+        if not target_btn or not target_btn.isVisible():
+            return
+        btn_geom = target_btn.geometry()
+        if btn_geom.width() <= 0:
+            QTimer.singleShot(15, lambda: self.update_tab_indicator(False))
+            return
+
+        target_y = self.filter_box.height() - 2
+        target_rect = QRect(btn_geom.x(), target_y, btn_geom.width(), 2)
+
+        self.tab_indicator.raise_()
+        self.tab_indicator.show()
+
+        if not animate:
+            self.tab_indicator_anim.stop()
+            self.tab_indicator.setGeometry(target_rect)
+        else:
+            self.tab_indicator_anim.stop()
+            self.tab_indicator_anim.setStartValue(self.tab_indicator.geometry())
+            self.tab_indicator_anim.setEndValue(target_rect)
+            self.tab_indicator_anim.start()
 
     def update_pin_ui(self):
         if self.is_pinned:
-            self.pin_btn.setText("📌")
+            self.pin_btn.setText("📍")
             self.pin_btn.setToolTip("Pinned (Always on top & stays open)")
         else:
-            self.pin_btn.setText("📍")
+            self.pin_btn.setText("📌")
             self.pin_btn.setToolTip("Unpinned (Click to pin & keep open)")
 
     def toggle_pin(self):
         self.is_pinned = not self.is_pinned
-        flags = self.windowFlags()
+        flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool
         if self.is_pinned:
             flags |= Qt.WindowType.WindowStaysOnTopHint
-        else:
-            flags &= ~Qt.WindowType.WindowStaysOnTopHint
-        self.update_pin_ui()
         self.setWindowFlags(flags)
+        self.update_pin_ui()
+        self.pin_btn.repaint()
         self.show()
+        self.activateWindow()
 
     def changeEvent(self, event):
         super().changeEvent(event)
         if event.type() == QEvent.Type.ActivationChange:
             if not self.isActiveWindow():
-                # Close widget when clicking outside, unless pinned or opening calendar
-                if not getattr(self, "modal_open", False) and not self.is_pinned:
-                    # Do NOT close if user clicked on or is interacting with the widget pill
-                    pill = getattr(self.controller, "pill", None)
-                    if pill is not None:
-                        cursor_pos = QCursor.pos()
-                        clicked_widget = QApplication.widgetAt(cursor_pos)
-                        if (pill.frameGeometry().adjusted(-10, -10, 10, 10).contains(cursor_pos) or 
-                            QApplication.activeWindow() == pill or 
-                            (clicked_widget is not None and (clicked_widget == pill or pill.isAncestorOf(clicked_widget)))):
-                            return
-                    self.controller.last_dashboard_close_time = time.time()
-                    self.hide()
+                # Never auto-close during initial open transition or while animating
+                if getattr(self, "_just_opened", False) or getattr(self, "_is_animating_open", False) or getattr(self, "_is_animating_close", False):
+                    return
+                # Never auto-close if modal dialog is open (e.g. shortcut dialog) or if pinned
+                if getattr(self, "modal_open", False) or self.is_pinned:
+                    return
+                # Do NOT close if user clicked on or is interacting with the widget pill
+                pill = getattr(self.controller, "pill", None)
+                if pill is not None:
+                    cursor_pos = QCursor.pos()
+                    if pill.frameGeometry().adjusted(-15, -15, 15, 15).contains(cursor_pos):
+                        return
+                    active_win = QApplication.activeWindow()
+                    if active_win == pill or (active_win is not None and pill.isAncestorOf(active_win)):
+                        return
+                self.animate_hide()
 
     def eventFilter(self, obj, event):
         if event.type() == QEvent.Type.Wheel:
@@ -953,8 +1145,13 @@ class ProductivityWidget(QWidget):
         event.accept()
 
     def set_filter_mode(self, mode):
+        if self.current_filter_mode == mode and mode != "today":
+            return
+        if mode == "today":
+            self.selected_date = date.today()
         self.current_filter_mode = mode
         self.update_filter_button_styles()
+        self.update_tab_indicator(animate=True)
         self.refresh_history()
 
     def update_filter_button_styles(self):
@@ -963,7 +1160,9 @@ class ProductivityWidget(QWidget):
                 btn.setObjectName("filterTabSelected")
             else:
                 btn.setObjectName("filterTab")
-            btn.setStyle(self.style())
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
+            btn.update()
 
     def prev_day(self):
         self.selected_date -= timedelta(days=1)
@@ -989,20 +1188,18 @@ class ProductivityWidget(QWidget):
 
         while self.session_list_layout.count() > 1:
             child = self.session_list_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+            if child:
+                w = child.widget()
+                if w:
+                    w.deleteLater()
 
         today = date.today()
         if self.current_filter_mode == "today":
-            date_str = self.selected_date.strftime("%Y-%m-%d")
+            self.selected_date = today
+            date_str = today.strftime("%Y-%m-%d")
             data = database.get_sessions_by_date(date_str)
-            self.view_includes_today = (self.selected_date == today)
-            if self.selected_date == today:
-                self.date_display_btn.setText(f"Today ({self.selected_date.strftime('%b %d')})")
-            elif self.selected_date == today - timedelta(days=1):
-                self.date_display_btn.setText(f"Yesterday ({self.selected_date.strftime('%b %d')})")
-            else:
-                self.date_display_btn.setText(self.selected_date.strftime("%a, %b %d, %Y"))
+            self.view_includes_today = True
+            self.date_display_btn.setText(f"Today ({today.strftime('%b %d')})")
         
         elif self.current_filter_mode == "7days":
             start_str = (today - timedelta(days=7)).strftime("%Y-%m-%d")
@@ -1031,8 +1228,7 @@ class ProductivityWidget(QWidget):
             active_elapsed = max(0, int((datetime.now() - self.controller.session_start_dt).total_seconds()))
 
         total_sec = self.base_completed_seconds + active_elapsed
-        total_hours = round(total_sec / 3600.0, 2)
-        self.today_total_label.setText(f"{total_hours:.2f}h")
+        self.today_total_label.setText(database.format_focus_duration(total_sec))
         
         session_count = data["count"]
         self.today_sessions_label.setText(f"{session_count} {'Session' if session_count == 1 else 'Sessions'}")
@@ -1064,8 +1260,8 @@ class ProductivityWidget(QWidget):
         card.setObjectName("sessionItem")
         card.setStyleSheet("""
             #sessionItem {
-                background-color: rgba(16, 185, 129, 0.1);
-                border: 1px solid rgba(16, 185, 129, 0.4);
+                background-color: rgba(255, 255, 255, 0.08);
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 border-radius: 0px;
             }
         """)
@@ -1079,18 +1275,18 @@ class ProductivityWidget(QWidget):
         time_row.setSpacing(6)
         time_row.setContentsMargins(0, 0, 0, 0)
 
-        card_dot = PulsingDot(size=7, active_color="#34D399", with_ping=True)
+        card_dot = PulsingDot(size=7, active_color="#FFFFFF", with_ping=True)
         card_dot.set_active(True)
         time_row.addWidget(card_dot)
 
         start_disp = start_dt.strftime("%I:%M %p")
-        time_lbl = QLabel(f"{start_disp} ➔ Ongoing")
-        time_lbl.setStyleSheet("color: #34D399; font-weight: 700; font-size: 12px;")
+        time_lbl = QLabel(start_disp)
+        time_lbl.setStyleSheet("color: #FFFFFF; font-weight: 700; font-size: 12px;")
         time_row.addWidget(time_lbl)
         time_row.addStretch()
 
         sub_lbl = QLabel("Active Right Now")
-        sub_lbl.setStyleSheet("color: rgba(110, 231, 183, 0.8); font-size: 10px;")
+        sub_lbl.setStyleSheet("color: #94A3B8; font-size: 10px;")
 
         info_col.addLayout(time_row)
         info_col.addWidget(sub_lbl)
@@ -1102,8 +1298,8 @@ class ProductivityWidget(QWidget):
         time_str = f"{hrs:02d}:{mins:02d}:{secs:02d}"
 
         self.active_card_dur_lbl = QLabel(time_str)
-        self.active_card_dur_lbl.setObjectName("sessionDurationGreen")
-        self.active_card_dur_lbl.setStyleSheet("color: #34D399; font-weight: 700; font-size: 12px; font-family: 'Fira Code', 'Consolas', monospace;")
+        self.active_card_dur_lbl.setObjectName("sessionDurationWhite")
+        self.active_card_dur_lbl.setStyleSheet("color: #FFFFFF; font-weight: 700; font-size: 12px; font-family: 'Fira Code', 'Consolas', monospace;")
         card_layout.addWidget(self.active_card_dur_lbl)
 
         card.installEventFilter(self)
@@ -1119,29 +1315,44 @@ class ProductivityWidget(QWidget):
         info_col.setSpacing(1)
 
         start_t = session_data.get("start_time_display") or ""
-        end_t = session_data.get("end_time_display") or "Ongoing"
-        time_lbl = QLabel(f"{start_t} ➔ {end_t}")
+        end_t = session_data.get("end_time_display") or ""
+        time_text = f"{start_t} ➔ {end_t}" if end_t else start_t
+        time_lbl = QLabel(time_text)
         time_lbl.setObjectName("sessionTime")
         time_lbl.setStyleSheet("color: #E2E8F0; font-weight: 600; font-size: 12px;")
 
-        sub_lbl = QLabel("Focus Session · Completed")
+        # Display relative or formatted date
+        date_raw = session_data.get("date")
+        date_str = ""
+        if date_raw:
+            try:
+                sess_d = datetime.strptime(date_raw, "%Y-%m-%d").date()
+                today = date.today()
+                if sess_d == today:
+                    date_str = "Today"
+                elif sess_d == today - timedelta(days=1):
+                    date_str = "Yesterday"
+                else:
+                    date_str = sess_d.strftime("%b %d, %Y")
+            except Exception:
+                date_str = str(date_raw)
+
+        sub_lbl = QLabel(date_str)
         sub_lbl.setObjectName("sessionSubtext")
         sub_lbl.setStyleSheet("color: #94A3B8; font-size: 10px;")
 
         info_col.addWidget(time_lbl)
-        info_col.addWidget(sub_lbl)
+        if date_str:
+            info_col.addWidget(sub_lbl)
         card_layout.addLayout(info_col, 1)
 
         dur_sec = session_data.get("duration_seconds", 0)
         dur_lbl = QLabel(database.format_duration(dur_sec))
-        dur_lbl.setObjectName("sessionDurationGreen")
-        dur_lbl.setStyleSheet("color: #34D399; font-weight: 600; font-size: 12px; font-family: 'Fira Code', 'Consolas', monospace;")
+        dur_lbl.setObjectName("sessionDurationWhite")
+        dur_lbl.setStyleSheet("color: #E2E8F0; font-weight: 600; font-size: 12px; font-family: 'Fira Code', 'Consolas', monospace;")
         card_layout.addWidget(dur_lbl)
 
-        del_btn = QPushButton("🗑")
-        del_btn.setObjectName("deleteItemBtn")
-        del_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        del_btn.setToolTip("Delete this session record")
+        del_btn = TrashButton()
         session_id = session_data["id"]
         del_btn.clicked.connect(lambda checked, s_id=session_id: self.delete_session(s_id))
         card_layout.addWidget(del_btn)
@@ -1204,16 +1415,20 @@ class AppController:
         client = self.local_server.nextPendingConnection()
         if client:
             client.readyRead.connect(lambda: self.on_ipc_message(client))
+            if client.bytesAvailable() > 0:
+                self.on_ipc_message(client)
 
     def on_ipc_message(self, client):
         msg = bytes(client.readAll()).decode("utf-8", errors="ignore").strip()
         if msg == "toggle":
             self.toggle_pill()
         else:
+            # User launched the app or sent show command
             if not self.pill.isVisible():
                 self.pill.show()
             self.pill.raise_()
             self.pill.activateWindow()
+            self.open_dashboard()
 
     def apply_shortcut(self, shortcut_str):
         mod, vk = parse_shortcut_to_windows(shortcut_str)
@@ -1322,13 +1537,13 @@ class AppController:
 
     def open_dashboard(self):
         self.dashboard.refresh_history()
-        self.dashboard.show()
-        self.dashboard.raise_()
-        self.dashboard.activateWindow()
+        self.dashboard.animate_show()
 
     def toggle_dashboard(self):
-        if self.dashboard.isVisible():
-            self.dashboard.hide()
+        if time.time() - getattr(self, "last_dashboard_close_time", 0) < 0.25:
+            return
+        if self.dashboard.isVisible() and not getattr(self.dashboard, "_is_animating_close", False):
+            self.dashboard.animate_hide()
         else:
             self.open_dashboard()
 
@@ -1341,7 +1556,7 @@ class AppController:
             self.dashboard.status_badge.setObjectName("statusBadgeActive")
             self.dashboard.status_badge.style().unpolish(self.dashboard.status_badge)
             self.dashboard.status_badge.style().polish(self.dashboard.status_badge)
-            self.dashboard.start_time_label.setText(f"Since {active['start_time_display']} · Real-time sync")
+            self.dashboard.start_time_label.setText(f"Since {active['start_time_display']}")
             self.dashboard.toggle_btn.setText("■  STOP SESSION")
             self.dashboard.toggle_btn.setObjectName("stopBtn")
             self.dashboard.toggle_btn.style().unpolish(self.dashboard.toggle_btn)
@@ -1361,7 +1576,7 @@ class AppController:
             self.dashboard.status_badge.setObjectName("statusBadgeActive")
             self.dashboard.status_badge.style().unpolish(self.dashboard.status_badge)
             self.dashboard.status_badge.style().polish(self.dashboard.status_badge)
-            self.dashboard.start_time_label.setText(f"Since {now_dt.strftime('%I:%M:%S %p')} · Real-time sync")
+            self.dashboard.start_time_label.setText(f"Since {now_dt.strftime('%I:%M:%S %p')}")
             self.dashboard.toggle_btn.setText("■  STOP SESSION")
             self.dashboard.toggle_btn.setObjectName("stopBtn")
             self.dashboard.toggle_btn.style().unpolish(self.dashboard.toggle_btn)
@@ -1410,8 +1625,7 @@ class AppController:
         # Real-time updates across dashboard sections while session is running:
         if self.dashboard.view_includes_today:
             curr_total = self.dashboard.base_completed_seconds + elapsed
-            curr_hrs = round(curr_total / 3600.0, 2)
-            self.dashboard.today_total_label.setText(f"{curr_hrs:.2f}h")
+            self.dashboard.today_total_label.setText(database.format_focus_duration(curr_total))
 
             if self.dashboard.active_card_dur_lbl:
                 self.dashboard.active_card_dur_lbl.setText(time_str)
@@ -1449,11 +1663,15 @@ if __name__ == "__main__":
     # Single-instance guard: check if Prodigit is already running
     socket = QLocalSocket()
     socket.connectToServer(LOCAL_SERVER_NAME)
-    if socket.waitForConnected(400):
+    if socket.waitForConnected(300):
         # Already running: signal existing instance to show its window and exit cleanly
-        socket.write(b"show\n")
-        socket.waitForBytesWritten(400)
+        if "--startup" not in sys.argv:
+            socket.write(b"show\n")
+            socket.flush()
+            socket.waitForBytesWritten(300)
         sys.exit(0)
+    else:
+        QLocalServer.removeServer(LOCAL_SERVER_NAME)
 
     icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prodigit.ico")
     if os.path.exists(icon_path):
